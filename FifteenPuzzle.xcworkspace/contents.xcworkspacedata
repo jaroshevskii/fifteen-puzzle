@@ -5,9 +5,6 @@
       location = "container:.editorconfig">
    </FileRef>
    <FileRef
-      location = "group:CMakeLists.txt">
-   </FileRef>
-   <FileRef
-      location = "container:FifteenPuzzle/FifteenPuzzle.xcodeproj">
+      location = "group:build/FifteenPuzzle.xcodeproj">
    </FileRef>
 </Workspace>
