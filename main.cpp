@@ -1,6 +1,3 @@
-
-// Full TCA Redux-like 15-Puzzle in C++ with Raylib (C API)
-
 #include <raylib.h>
 #include <vector>
 #include <string>
@@ -9,245 +6,162 @@
 #include <algorithm>
 #include <random>
 #include <ctime>
-#include <cstdlib>
 #include <functional>
 
-// Constants
-constexpr float card_size = 94.f;
-constexpr int cards_per_row = 4;
-constexpr int cards_per_column = 4;
-constexpr int ident = 16;
+// ------------------ Constants ------------------
+constexpr float CARD_SIZE = 94.f;
+constexpr int GRID = 4;
 
-// Card struct
+// ------------------ Card ------------------
 struct Card {
     std::string text;
-    Rectangle rectangle;
+    Rectangle rect;
 
-    Card(std::string t, Rectangle r) : text(t), rectangle(r) {}
+    Card(std::string t, Rectangle r) : text(t), rect(r) {}
 
     void draw() const {
-        DrawRectangleRec(rectangle, BLACK);
-        Rectangle body = {rectangle.x + 2, rectangle.y + 2, rectangle.width - 4, rectangle.height - 4};
-        Color body_color = text.empty() ? DARKPURPLE : ORANGE;
-        DrawRectangleRec(body, body_color);
+        DrawRectangleRec(rect, BLACK);
+        Rectangle body = {rect.x + 2, rect.y + 2, rect.width - 4, rect.height - 4};
+        Color bodyColor = text.empty() ? DARKPURPLE : ORANGE;
+        DrawRectangleRec(body, bodyColor);
         if (!text.empty()) {
-            int font_size = 50;
-            int pos_y = static_cast<int>(rectangle.y + (rectangle.height - font_size) / 2);
-            int pos_x = static_cast<int>(rectangle.x + (rectangle.width - MeasureText(text.c_str(), font_size)) / 2);
-            DrawText(text.c_str(), pos_x, pos_y, font_size, BLACK);
+            int fontSize = 50;
+            int x = static_cast<int>(rect.x + (rect.width - MeasureText(text.c_str(), fontSize)) / 2);
+            int y = static_cast<int>(rect.y + (rect.height - fontSize) / 2);
+            DrawText(text.c_str(), x, y, fontSize, BLACK);
         }
     }
 };
 
-// Helper functions
-bool check_consecutive(const std::vector<Card>& cards) {
-    for (size_t i = 0; i < cards.size() - 2; ++i) {
-        const std::string& a = cards[i].text;
-        const std::string& b = cards[i + 1].text;
-        const std::string& c = cards[i + 2].text;
-        if (!a.empty() && !b.empty() && !c.empty()) {
-            try {
-                int ia = std::stoi(a), ib = std::stoi(b), ic = std::stoi(c);
-                if (ia + 1 == ib && ib + 1 == ic) return true;
-            } catch (...) {}
-        }
-    }
-    return false;
-}
-
-std::random_device rd;
-std::mt19937 g(rd()); // random engine
-
-void shuffle_card_text(std::vector<Card>& cards) {
+// ------------------ Functional Helpers ------------------
+auto shuffleTexts = [](std::vector<Card> cards) {
+    static std::mt19937 g{std::random_device{}()};
     std::vector<std::string> texts;
-    for (const auto& c : cards) texts.push_back(c.text);
-    std::shuffle(texts.begin(), texts.end(), g); // <-- use shuffle instead
+    for (auto& c : cards) texts.push_back(c.text);
+    std::shuffle(texts.begin(), texts.end(), g);
     for (size_t i = 0; i < cards.size(); ++i) cards[i].text = texts[i];
-    if (check_consecutive(cards)) std::reverse(cards.begin(), cards.end());
-}
+    return cards;
+};
 
-size_t get_empty_card_index(const std::vector<Card>& cards) {
-    for (size_t i = 0; i < cards.size(); ++i) {
-        if (cards[i].text.empty()) return i;
-    }
-    return static_cast<size_t>(-1);
-}
+auto findEmpty = [](const std::vector<Card>& cards) {
+    auto it = std::find_if(cards.begin(), cards.end(), [](auto& c){ return c.text.empty(); });
+    return it != cards.end() ? std::distance(cards.begin(), it) : -1;
+};
 
-bool is_adjacent(size_t i, size_t empty) {
-    int row_i = static_cast<int>(i / cards_per_row);
-    int col_i = static_cast<int>(i % cards_per_row);
-    int row_e = static_cast<int>(empty / cards_per_row);
-    int col_e = static_cast<int>(empty % cards_per_row);
-    return (row_i == row_e && std::abs(col_i - col_e) == 1) ||
-           (col_i == col_e && std::abs(row_i - row_e) == 1);
-}
+auto adjacent = [](int i, int j) {
+    int r1 = i / GRID, c1 = i % GRID;
+    int r2 = j / GRID, c2 = j % GRID;
+    return (r1 == r2 && abs(c1 - c2) == 1) || (c1 == c2 && abs(r1 - r2) == 1);
+};
 
-bool is_sorted(const std::vector<Card>& cards) {
-    std::vector<std::string> expected;
-    for (int j = 1; j < 16; ++j) expected.push_back(std::to_string(j));
-    std::vector<std::string> actual;
-    for (size_t k = 0; k < 15; ++k) actual.push_back(cards[k].text);
-    return actual == expected && cards.back().text.empty();
-}
+auto solved = [](const std::vector<Card>& cards) {
+    for (int i = 0; i < 15; ++i)
+        if (cards[i].text != std::to_string(i + 1)) return false;
+    return cards[15].text.empty();
+};
 
-// TCA-like structure
-namespace PuzzleFeature {
-    struct State {
-        std::vector<Card> cards;
-        bool is_end_game = false;
-    };
-
-    struct Shuffle {};
-    struct Move { size_t index; };
-    struct Restart {};
-
+// ------------------ TCA-style ------------------
+namespace Puzzle {
+    struct State { std::vector<Card> cards; bool isEnd = false; };
+    struct Shuffle {}; struct Move { int index; }; struct Restart {};
     using Action = std::variant<Shuffle, Move, Restart>;
 
-    using ReducerResult = std::pair<State, std::optional<Action>>;
+    State reducer(const State& s, const Action& a) {
+        State ns = s;
 
-    ReducerResult reducer(const State& state, const Action& action) {
-        State newState = state;
-
-        if (std::holds_alternative<Shuffle>(action)) {
-            shuffle_card_text(newState.cards);
-        } else if (auto* move = std::get_if<Move>(&action)) {
-            size_t empty = get_empty_card_index(newState.cards);
-            if (empty != static_cast<size_t>(-1) && is_adjacent(move->index, empty)) {
-                std::swap(newState.cards[move->index].text, newState.cards[empty].text);
+        std::visit([&](auto&& act){
+            using T = std::decay_t<decltype(act)>;
+            if constexpr (std::is_same_v<T, Shuffle>) ns.cards = shuffleTexts(ns.cards);
+            else if constexpr (std::is_same_v<T, Move>) {
+                int empty = findEmpty(ns.cards);
+                if (empty != -1 && adjacent(act.index, empty))
+                    std::swap(ns.cards[act.index].text, ns.cards[empty].text);
             }
-            newState.is_end_game = is_sorted(newState.cards);
-        } else if (std::holds_alternative<Restart>(action)) {
-            newState.is_end_game = false;
-            return reducer(newState, Shuffle{});
-        }
+            else if constexpr (std::is_same_v<T, Restart>) {
+                ns.cards = shuffleTexts(ns.cards);
+                ns.isEnd = false;
+            }
+        }, a);
 
-        return {newState, std::nullopt};
+        ns.isEnd = solved(ns.cards);
+        return ns;
     }
 }
 
-// Generic Store
+// ------------------ Store ------------------
 template<typename State, typename Action>
-class Store {
-    State state_;
-    std::function<std::pair<State, std::optional<Action>>(const State&, const Action&)> reducer_;
-public:
-    Store(const State& initial, auto reducer) : state_(initial), reducer_(reducer) {}
+struct Store {
+    State state;
+    std::function<State(const State&, const Action&)> reducer;
 
-    void dispatch(const Action& action) {
-        auto [newState, effect] = reducer_(state_, action);
-        state_ = newState;
-        if (effect) dispatch(*effect);
-    }
+    Store(State s, decltype(reducer) r) : state(s), reducer(r) {}
 
-    const State& state() const { return state_; }
+    void dispatch(const Action& a) { state = reducer(state, a); }
 };
 
-// Create initial state
-PuzzleFeature::State create_initial_state() {
-    PuzzleFeature::State s;
-    for (int row = 0; row < cards_per_column; ++row) {
-        for (int col = 0; col < cards_per_row; ++col) {
-            float x = static_cast<float>(col) * card_size;
-            float y = static_cast<float>(row) * card_size;
-            std::string text = (row == 3 && col == 3) ? "" : std::to_string(row * cards_per_row + col + 1);
-            Rectangle rect = {x, y, card_size, card_size};
-            s.cards.emplace_back(text, rect);
+// ------------------ Initial State ------------------
+auto initialState = []() {
+    Puzzle::State s;
+    for (int r = 0; r < GRID; ++r)
+        for (int c = 0; c < GRID; ++c) {
+            std::string t = (r == GRID-1 && c == GRID-1) ? "" : std::to_string(r*GRID + c + 1);
+            s.cards.emplace_back(t, Rectangle{c*CARD_SIZE, r*CARD_SIZE, CARD_SIZE, CARD_SIZE});
         }
-    }
     return s;
-}
+};
 
-// Draw overlay
-void draw_overlay() {
-    int w = GetScreenWidth();
-    int h = GetScreenHeight();
-    DrawRectangle(0, 0, w, h, {0, 0, 0, 192});
-    const char* text = "Victory!";
-    int font_size = 60;
-    int pos_x = (w - MeasureText(text, font_size)) / 2;
-    int pos_y = (h - font_size) / 2 - ident * 2;
-    DrawText(text, pos_x, pos_y, font_size, WHITE);
+// ------------------ Overlay ------------------
+void drawOverlay() {
+    int w = GetScreenWidth(), h = GetScreenHeight();
+    DrawRectangle(0, 0, w, h, {0,0,0,192});
+    const char* txt = "Victory!";
+    int fs = 60;
+    DrawText(txt, (w - MeasureText(txt, fs))/2, (h - fs)/2 - 32, fs, WHITE);
     const char* desc = "Click to continue.";
-    int desc_x = (w - MeasureText(desc, 20)) / 2;
-    int desc_y = pos_y + font_size + ident;
-    DrawText(desc, desc_x, desc_y, 20, WHITE);
+    DrawText(desc, (w - MeasureText(desc, 20))/2, (h + fs)/2, 20, WHITE);
 }
 
+// ------------------ Main ------------------
 int main() {
-    std::srand(static_cast<unsigned>(std::time(nullptr)));  // For random
-
-    auto initial = create_initial_state();
-    Store<PuzzleFeature::State, PuzzleFeature::Action> store(initial, PuzzleFeature::reducer);
-
-    store.dispatch(PuzzleFeature::Shuffle{});
-
-    int screen_size = static_cast<int>(card_size * 4);
-    
     SetConfigFlags(FLAG_VSYNC_HINT);
-    InitWindow(screen_size, screen_size, "15 Puzzle");
+    InitWindow(GRID*CARD_SIZE, GRID*CARD_SIZE, "15 Puzzle");
+
+    Store<Puzzle::State, Puzzle::Action> store(initialState(), Puzzle::reducer);
+    store.dispatch(Puzzle::Shuffle{});
 
     while (!WindowShouldClose()) {
-        const auto& current_state = store.state();
+        const auto& s = store.state;
 
-        if (IsKeyPressed(KEY_S)) {
-            store.dispatch(PuzzleFeature::Shuffle{});
-        }
+        if (IsKeyPressed(KEY_S)) store.dispatch(Puzzle::Shuffle{});
 
-        if (!current_state.is_end_game) {
-            Vector2 mouse = GetMousePosition();
+        if (!s.isEnd) {
+            Vector2 m = GetMousePosition();
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                for (size_t i = 0; i < current_state.cards.size(); ++i) {
-                    if (CheckCollisionPointRec(mouse, current_state.cards[i].rectangle)) {
-                        size_t empty = get_empty_card_index(current_state.cards);
-                        if (is_adjacent(i, empty)) {
-                            store.dispatch(PuzzleFeature::Move{i});
-                            break;
-                        }
+                for (int i = 0; i < s.cards.size(); ++i)
+                    if (CheckCollisionPointRec(m, s.cards[i].rect)) {
+                        store.dispatch(Puzzle::Move{i});
+                        break;
                     }
-                }
+
             }
 
-            // Keyboard arrow support
-            size_t empty = get_empty_card_index(current_state.cards);
-            int row = static_cast<int>(empty / cards_per_row);
-            int col = static_cast<int>(empty % cards_per_row);
+            int empty = findEmpty(s.cards);
+            int r = empty / GRID, c = empty % GRID;
 
-            if (IsKeyPressed(KEY_UP) && row < cards_per_column - 1) { // Move tile below up
-                size_t idx = (row + 1) * cards_per_row + col;
-                store.dispatch(PuzzleFeature::Move{idx});
-            }
-            if (IsKeyPressed(KEY_DOWN) && row > 0) { // Move tile above down
-                size_t idx = (row - 1) * cards_per_row + col;
-                store.dispatch(PuzzleFeature::Move{idx});
-            }
-            if (IsKeyPressed(KEY_LEFT) && col < cards_per_row - 1) { // Move tile right to left
-                size_t idx = row * cards_per_row + (col + 1);
-                store.dispatch(PuzzleFeature::Move{idx});
-            }
-            if (IsKeyPressed(KEY_RIGHT) && col > 0) { // Move tile left to right
-                size_t idx = row * cards_per_row + (col - 1);
-                store.dispatch(PuzzleFeature::Move{idx});
-            }
-        } else {
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                store.dispatch(PuzzleFeature::Restart{});
-            }
+            if (IsKeyPressed(KEY_UP) && r < GRID-1) store.dispatch(Puzzle::Move{(r+1)*GRID + c});
+            if (IsKeyPressed(KEY_DOWN) && r > 0) store.dispatch(Puzzle::Move{(r-1)*GRID + c});
+            if (IsKeyPressed(KEY_LEFT) && c < GRID-1) store.dispatch(Puzzle::Move{r*GRID + (c+1)});
+            if (IsKeyPressed(KEY_RIGHT) && c > 0) store.dispatch(Puzzle::Move{r*GRID + (c-1)});
+        } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            store.dispatch(Puzzle::Restart{});
         }
 
         BeginDrawing();
         ClearBackground(DARKPURPLE);
-
-        for (const auto& card : current_state.cards) {
-            card.draw();
-        }
-
-        if (current_state.is_end_game) {
-            draw_overlay();
-        }
-
+        for (auto& card : s.cards) card.draw();
+        if (s.isEnd) drawOverlay();
         EndDrawing();
     }
 
     CloseWindow();
-    return 0;
 }
