@@ -314,9 +314,9 @@ int main() {
     int minutes = (totalSeconds % 3600) / 60;
     int seconds = totalSeconds % 60;
     
-    std::string label = store.state.isEnd ? "Victory Time: " : "";
+    std::string label = store.state.isEnd ? "Victory Time " : "";
     std::string timeStr = std::format(
-        "{} {:02}:{:02}:{:02}",
+        "{}{:02}:{:02}:{:02}",
         label,
         hours, minutes, seconds
     );
