@@ -127,6 +127,7 @@ struct State {
     std::vector<std::string> tiles;
     bool isEnd = false;
     std::optional<double> startTime{}; // час старту гри
+    std::optional<int> lastDuration{}; // тривалість останньої гри в секундах
 };
 
 struct Shuffle {};
@@ -171,8 +172,14 @@ static auto reducer(const State& s, const Action& a) -> std::pair<State, std::ve
         }
     }, a);
 
-    ns.isEnd = isSolved(ns.tiles);
-    if (ns.isEnd) ns.startTime = std::nullopt;
+    bool solved = isSolved(ns.tiles);
+    if (solved && !ns.isEnd) {
+        if (ns.startTime.has_value()) {
+            ns.lastDuration = static_cast<int>(GetTime() - *ns.startTime); // зберігаємо час партії
+        }
+        ns.startTime = std::nullopt;
+    }
+    ns.isEnd = solved;
 
     return {ns, effects};
 }
@@ -245,7 +252,7 @@ int main() {
     }
   };
 
-  Puzzle::State init{shuffledSolvable(), false, GetTime() - 10000};
+  Puzzle::State init{shuffledSolvable()};
   Store<Puzzle::State, Puzzle::Action, Puzzle::Effect> store(init, Puzzle::reducer, effectRunner);
   store.send(Puzzle::Start{});
 
@@ -293,22 +300,29 @@ int main() {
     BeginDrawing();
     ClearBackground(BLACK);
     drawBoard(store.state.tiles);
+    
+    if (store.state.isEnd) drawOverlay();
 
     int totalSeconds = 0;
-    if (store.state.startTime.has_value()) {
-        totalSeconds = static_cast<int>(GetTime() - *store.state.startTime);
+    if (store.state.isEnd && store.state.lastDuration.has_value()) {
+        totalSeconds = *store.state.lastDuration; // показуємо час останньої гри
+    } else if (store.state.startTime.has_value()) {
+        totalSeconds = static_cast<int>(GetTime() - *store.state.startTime); // поточний таймер
     }
 
     int hours = totalSeconds / 3600;
     int minutes = (totalSeconds % 3600) / 60;
     int seconds = totalSeconds % 60;
+    
+    std::string label = store.state.isEnd ? "Victory Time: " : "";
+    std::string timeStr = std::format(
+        "{} {:02}:{:02}:{:02}",
+        label,
+        hours, minutes, seconds
+    );
+    
+    DrawText(timeStr.c_str(), 16, GetScreenHeight() - 30 - 10, 30, WHITE);
 
-    std::string timeStr = std::format("{:02}:{:02}:{:02}", hours, minutes, seconds);
-
-    const int fs = 30;
-    DrawText(timeStr.c_str(), 16, GetScreenHeight() - fs - 10, fs, WHITE);
-
-    if (store.state.isEnd) drawOverlay();
     EndDrawing();
   }
 
