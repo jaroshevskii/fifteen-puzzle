@@ -134,8 +134,9 @@ struct Move { int index; };
 struct Restart {};
 struct SetStartTime { double time; };
 struct NearWinShuffle {};
+struct Start {};
 
-using Action = std::variant<Shuffle, Move, Restart, SetStartTime, NearWinShuffle>;
+using Action = std::variant<Shuffle, Move, Restart, SetStartTime, NearWinShuffle, Start>;
 struct StartTimer {};
 using Effect = std::variant<StartTimer>;
 using Dispatch = std::function<void(Action)>;
@@ -146,7 +147,11 @@ static auto reducer(const State& s, const Action& a) -> std::pair<State, std::ve
 
     std::visit([&](auto&& act){
         using T = std::decay_t<decltype(act)>;
-        if constexpr (std::is_same_v<T, Shuffle>) {
+        if constexpr (std::is_same_v<T, Start>) {
+          if (!s.startTime.has_value()) {
+            effects.push_back(StartTimer{});
+          }
+        } else if constexpr (std::is_same_v<T, Shuffle>) {
             ns.tiles = shuffledSolvable();
         } else if constexpr (std::is_same_v<T, Move>) {
             const auto empty = findEmpty(ns.tiles);
@@ -240,9 +245,9 @@ int main() {
     }
   };
 
-  Puzzle::State init{ solvedTiles(), false };
+  Puzzle::State init{shuffledSolvable(), false, GetTime() - 10000};
   Store<Puzzle::State, Puzzle::Action, Puzzle::Effect> store(init, Puzzle::reducer, effectRunner);
-  store.send(Puzzle::Restart{});
+  store.send(Puzzle::Start{});
 
   while (!WindowShouldClose()) {
     const auto& s = store.state;
