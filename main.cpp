@@ -243,7 +243,6 @@ int main() {
   SetConfigFlags(FLAG_VSYNC_HINT);
   InitWindow(static_cast<int>(Config::grid * Config::cardSize), static_cast<int>(Config::grid * Config::cardSize + Config::ui_height), "15 Puzzle");
   
-  // ====================== OPENAL ІНІЦІАЛІЗАЦІЯ ======================
   ALCdevice* openALDevice = alcOpenDevice(nullptr);
   ALCcontext* openALContext = alcCreateContext(openALDevice, nullptr);
   alcMakeContextCurrent(openALContext);
@@ -272,7 +271,6 @@ int main() {
   alSourcei(beepSource, AL_BUFFER, beepBuffer);
   alSourcef(beepSource, AL_GAIN, 0.75f);
   alSourcei(beepSource, AL_LOOPING, AL_FALSE);
-  // ================================================================
   
   auto effectRunner = [](const std::vector<Puzzle::Effect>& effects, const Puzzle::Dispatch& dispatch) {
     for (const auto& eff : effects) {
@@ -340,11 +338,10 @@ int main() {
               int currentSec = static_cast<int>(GetTime() - currentStart);
 
               lastStartTime = currentStart;
-              lastSecond = currentSec; // ← ключовий момент
+              lastSecond = currentSec;
           }
       }
       
-      // ====================== ЗВУК ======================
       if (s.startTime.has_value() && soundEnabled) {
         double currentStart = *s.startTime;
         int currentSec = static_cast<int>(GetTime() - currentStart);
@@ -359,7 +356,6 @@ int main() {
           lastSecond = currentSec;
         }
       }
-      // ==================================================
     } else {
       if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) store.send(Puzzle::Restart{});
     }
@@ -393,14 +389,12 @@ int main() {
     EndDrawing();
   }
   
-  // ====================== CLEANUP ======================
   alDeleteSources(1, &beepSource);
   alDeleteBuffers(1, &beepBuffer);
   alcMakeContextCurrent(nullptr);
   alcDestroyContext(openALContext);
   alcCloseDevice(openALDevice);
-  // =====================================================
-  
+
   CloseWindow();
   return 0;
 }
