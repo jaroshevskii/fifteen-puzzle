@@ -9,6 +9,8 @@
 #include <functional>
 #include <cassert>
 #include <format>
+#include <AL/al.h>
+#include <AL/alc.h>
 
 namespace Config {
 
@@ -240,7 +242,38 @@ static void drawOverlay() {
 int main() {
   SetConfigFlags(FLAG_VSYNC_HINT);
   InitWindow(static_cast<int>(Config::grid * Config::cardSize), static_cast<int>(Config::grid * Config::cardSize + Config::ui_height), "15 Puzzle");
-
+  
+  // ====================== OPENAL ІНІЦІАЛІЗАЦІЯ ======================
+  ALCdevice* openALDevice = alcOpenDevice(nullptr);
+  ALCcontext* openALContext = alcCreateContext(openALDevice, nullptr);
+  alcMakeContextCurrent(openALContext);
+  
+  // Генеруємо простий біп
+  const int sampleRate = 44100;
+  const float beepDuration = 0.08f;
+  const float beepFreq = 1200.0f;
+  
+  int numSamples = static_cast<int>(beepDuration * sampleRate);
+  std::vector<ALshort> samples(numSamples);
+  
+  for (int i = 0; i < numSamples; ++i) {
+    double t = static_cast<double>(i) / sampleRate;
+    double value = std::sin(2.0 * PI * beepFreq * t);
+    value *= std::exp(-t / (beepDuration * 0.25));        // швидке затухання
+    samples[i] = static_cast<ALshort>(value * 22000);     // гучність
+  }
+  
+  ALuint beepBuffer, beepSource;
+  alGenBuffers(1, &beepBuffer);
+  alBufferData(beepBuffer, AL_FORMAT_MONO16, samples.data(),
+               numSamples * sizeof(ALshort), sampleRate);
+  
+  alGenSources(1, &beepSource);
+  alSourcei(beepSource, AL_BUFFER, beepBuffer);
+  alSourcef(beepSource, AL_GAIN, 0.75f);
+  alSourcei(beepSource, AL_LOOPING, AL_FALSE);
+  // ================================================================
+  
   auto effectRunner = [](const std::vector<Puzzle::Effect>& effects, const Puzzle::Dispatch& dispatch) {
     for (const auto& eff : effects) {
       std::visit([&](auto&& e) {
@@ -251,16 +284,20 @@ int main() {
       }, eff);
     }
   };
-
+  
   Puzzle::State init{shuffledSolvable()};
   Store<Puzzle::State, Puzzle::Action, Puzzle::Effect> store(init, Puzzle::reducer, effectRunner);
   store.send(Puzzle::Start{});
-
+  
+  bool soundEnabled = false;
+  double lastStartTime = 0.0;
+  int lastSecond = 0;
+  
   while (!WindowShouldClose()) {
     const auto& s = store.state;
-
+    
     if (IsKeyPressed(KEY_R)) store.send(Puzzle::Restart{});
-
+    
     if (!s.isEnd) {
       if (IsKeyPressed(KEY_S)) store.send(Puzzle::Shuffle{});
       
@@ -270,7 +307,7 @@ int main() {
           if (CheckCollisionPointRec(m, getRect(i))) { store.send(Puzzle::Move{i}); break; }
         }
       }
-
+      
       const auto empty = findEmpty(s.tiles);
       if (empty != -1) {
         const int r = static_cast<int>(empty) / Config::grid;
@@ -283,49 +320,87 @@ int main() {
       
       static double lastWTime = 0.0;
       const double doublePressThreshold = 0.4;
-
+      
       if (IsKeyPressed(KEY_W)) {
-          double now = GetTime();
-          if (now - lastWTime < doublePressThreshold) {
-              store.send(Puzzle::NearWinShuffle{});
-              lastWTime = 0;
-          } else {
-              lastWTime = now;
+        double now = GetTime();
+        if (now - lastWTime < doublePressThreshold) {
+          store.send(Puzzle::NearWinShuffle{});
+          lastWTime = 0;
+        } else {
+          lastWTime = now;
+        }
+      }
+      
+      if (IsKeyPressed(KEY_M)) {
+          soundEnabled = !soundEnabled;
+
+          if (soundEnabled && s.startTime.has_value()) {
+              // синхронізація — стартуємо з наступної секунди
+              double currentStart = *s.startTime;
+              int currentSec = static_cast<int>(GetTime() - currentStart);
+
+              lastStartTime = currentStart;
+              lastSecond = currentSec; // ← ключовий момент
           }
       }
+      
+      // ====================== ЗВУК ======================
+      if (s.startTime.has_value() && soundEnabled) {
+        double currentStart = *s.startTime;
+        int currentSec = static_cast<int>(GetTime() - currentStart);
+        
+        if (currentStart != lastStartTime) {
+          lastStartTime = currentStart;
+          lastSecond = 0;
+        }
+        
+        if (currentSec > lastSecond) {
+          alSourcePlay(beepSource);
+          lastSecond = currentSec;
+        }
+      }
+      // ==================================================
     } else {
       if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) store.send(Puzzle::Restart{});
     }
-
+    
     BeginDrawing();
     ClearBackground(BLACK);
     drawBoard(store.state.tiles);
     
     if (store.state.isEnd) drawOverlay();
-
+    
     int totalSeconds = 0;
     if (store.state.isEnd && store.state.lastDuration.has_value()) {
-        totalSeconds = *store.state.lastDuration; // показуємо час останньої гри
+      totalSeconds = *store.state.lastDuration; // показуємо час останньої гри
     } else if (store.state.startTime.has_value()) {
-        totalSeconds = static_cast<int>(GetTime() - *store.state.startTime); // поточний таймер
+      totalSeconds = static_cast<int>(GetTime() - *store.state.startTime); // поточний таймер
     }
-
+    
     int hours = totalSeconds / 3600;
     int minutes = (totalSeconds % 3600) / 60;
     int seconds = totalSeconds % 60;
     
     std::string label = store.state.isEnd ? "Victory Time " : "";
     std::string timeStr = std::format(
-        "{}{:02}:{:02}:{:02}",
-        label,
-        hours, minutes, seconds
-    );
+                                      "{}{:02}:{:02}:{:02}",
+                                      label,
+                                      hours, minutes, seconds
+                                      );
     
     DrawText(timeStr.c_str(), 16, GetScreenHeight() - 30 - 10, 30, WHITE);
-
+    
     EndDrawing();
   }
-
+  
+  // ====================== CLEANUP ======================
+  alDeleteSources(1, &beepSource);
+  alDeleteBuffers(1, &beepBuffer);
+  alcMakeContextCurrent(nullptr);
+  alcDestroyContext(openALContext);
+  alcCloseDevice(openALDevice);
+  // =====================================================
+  
   CloseWindow();
   return 0;
 }
