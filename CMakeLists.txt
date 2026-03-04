@@ -34,6 +34,41 @@ set(ALSOFT_NO_CONFIG_UTIL ON CACHE BOOL "" FORCE)
 
 FetchContent_MakeAvailable(openal-soft)
 
-add_executable(${PROJECT_NAME} main.cpp)
+add_library(
+  PuzzleFeature
+  src/Features/Puzzle/PuzzleFeature.cpp
+  src/Features/Puzzle/PuzzleFeatureAudio.cpp
+  src/Features/Puzzle/PuzzleFeatureView.cpp
+)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE raylib OpenAL)
+target_sources(
+  PuzzleFeature
+  PRIVATE
+    src/Features/Puzzle/PuzzleFeature.hpp
+    src/Features/Puzzle/PuzzleFeatureAudio.hpp
+    src/Features/Puzzle/PuzzleFeatureView.hpp
+)
+
+target_include_directories(PuzzleFeature PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(PuzzleFeature PUBLIC raylib OpenAL)
+
+add_library(
+  AppFeature
+  src/Features/App/AppFeature.cpp
+  src/Features/App/AppFeatureView.cpp
+)
+
+target_sources(
+  AppFeature
+  PRIVATE
+    src/Features/App/AppFeature.hpp
+    src/Features/App/AppFeatureView.hpp
+)
+
+target_include_directories(AppFeature PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(AppFeature PUBLIC PuzzleFeature)
+
+add_executable(${PROJECT_NAME} main.cpp)
+target_sources(${PROJECT_NAME} PRIVATE src/Core/Store.hpp)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(${PROJECT_NAME} PRIVATE AppFeature)
