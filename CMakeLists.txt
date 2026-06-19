@@ -7,9 +7,14 @@ project(FifteenPuzzle LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-# The `std` module CMake builds for `import std;` uses the compiler's default
-# dialect (gnu++26); our module units must match it to load the same std.pcm.
-set(CMAKE_CXX_EXTENSIONS ON)
+# On Clang/GCC the `std` module CMake builds for `import std;` uses the default
+# dialect (gnu++NN), so our module units must enable extensions to load the same
+# std.pcm. MSVC's modules require conformance mode instead, so keep them off.
+if(MSVC)
+  set(CMAKE_CXX_EXTENSIONS OFF)
+else()
+  set(CMAKE_CXX_EXTENSIONS ON)
+endif()
 
 include(FetchContent)
 
@@ -38,15 +43,18 @@ set(ALSOFT_TESTS OFF CACHE BOOL "" FORCE)
 set(ALSOFT_UTILS OFF CACHE BOOL "" FORCE)
 set(ALSOFT_NO_CONFIG_UTIL ON CACHE BOOL "" FORCE)
 
-# Workarounds for building openal-soft 1.24.2 with upstream Clang against a very
-# new Apple SDK, applied to this subtree only and restored before our own
+# Workarounds for building openal-soft 1.24.2 with upstream Clang/libc++ against
+# a very new Apple SDK, applied to this subtree only and restored before our own
 # (module) targets are defined:
 #   * -include cstdlib   : bundled fmt 11.1.1 relies on a transitive <cstdlib>
 #                          that newer libc++ no longer provides.
 #   * -Wno-elaborated-enum-base : Apple's CF_ENUM macros trip a diagnostic that
 #                          upstream Clang treats as an error.
+# These are Clang/GCC flags; MSVC does not need (or understand) them.
 set(_saved_cxx_flags "${CMAKE_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include cstdlib -Wno-elaborated-enum-base")
+if(NOT MSVC)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include cstdlib -Wno-elaborated-enum-base")
+endif()
 FetchContent_MakeAvailable(openal-soft)
 set(CMAKE_CXX_FLAGS "${_saved_cxx_flags}")
 

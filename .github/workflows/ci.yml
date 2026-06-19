@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS
+            runner: macos-15
+            preset: macos
+          - name: Linux
+            runner: ubuntu-24.04
+            preset: linux
+          - name: Windows
+            runner: windows-2022
+            preset: windows
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # `import std;` is gated behind a CMake-version-specific UUID in
+      # CMakeLists.txt, so the CMake version is pinned to match.
+      - name: Install CMake + Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "4.2.3"
+          ninjaVersion: "latest"
+
+      # --- macOS: Homebrew LLVM (Apple Clang has no modules / import std) ------
+      - name: Install LLVM (macOS)
+        if: runner.os == 'macOS'
+        run: brew install llvm
+
+      - name: Configure / Build / Test (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cmake --preset macos
+          cmake --build --preset macos
+          ctest --preset macos
+
+      # --- Linux: upstream LLVM + libc++ --------------------------------------
+      - name: Install LLVM + libc++ + windowing deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          wget -q https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 21
+          sudo apt-get install -y \
+            clang-21 lld-21 libc++-21-dev libc++abi-21-dev \
+            libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev
+
+      - name: Configure / Build / Test (Linux)
+        if: runner.os == 'Linux'
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          # Locate libc++'s module manifest for this toolchain.
+          json="$(clang++-21 -stdlib=libc++ -print-file-name=libc++.modules.json)"
+          if [ ! -f "$json" ]; then
+            json="$(find /usr/lib/llvm-21 -name libc++.modules.json | head -n1)"
+          fi
+          echo "Using modules.json: $json"
+          cmake --preset linux -DCMAKE_CXX_STDLIB_MODULES_JSON="$json"
+          cmake --build --preset linux
+          ctest --preset linux
+
+      # --- Windows: MSVC (ships its own std module) ---------------------------
+      - name: Set up MSVC developer environment (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure / Build / Test (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          cmake --preset windows
+          cmake --build --preset windows
+          ctest --preset windows

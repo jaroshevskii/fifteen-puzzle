@@ -3,23 +3,58 @@
   "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 0 },
   "configurePresets": [
     {
-      "name": "default",
-      "displayName": "Homebrew LLVM + Ninja (C++26 modules, import std)",
-      "description": "C++ modules and `import std;` require upstream LLVM; Apple Clang does not support them.",
+      "name": "base",
+      "hidden": true,
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build",
+      "binaryDir": "${sourceDir}/build"
+    },
+    {
+      "name": "macos",
+      "displayName": "macOS — Homebrew LLVM (C++26 modules, import std)",
+      "description": "C++ modules and `import std;` require upstream LLVM; Apple Clang supports neither.",
+      "inherits": "base",
       "cacheVariables": {
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
         "CMAKE_CXX_STDLIB_MODULES_JSON": "/opt/homebrew/opt/llvm/lib/c++/libc++.modules.json",
         "CMAKE_EXE_LINKER_FLAGS": "-L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++ -L/opt/homebrew/opt/llvm/lib -Wl,-rpath,/opt/homebrew/opt/llvm/lib"
       }
+    },
+    {
+      "name": "linux",
+      "displayName": "Linux — LLVM/libc++ (C++26 modules, import std)",
+      "description": "Set CC/CXX to a recent clang and (if needed) CMAKE_CXX_STDLIB_MODULES_JSON via -D.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS": "-stdlib=libc++",
+        "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libc++"
+      }
+    },
+    {
+      "name": "windows",
+      "displayName": "Windows — MSVC (C++26 modules, import std)",
+      "description": "Run from a Visual Studio developer environment so cl/Ninja are on PATH.",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "cl",
+        "CMAKE_CXX_COMPILER": "cl"
+      }
+    },
+    {
+      "name": "default",
+      "inherits": "macos"
     }
   ],
   "buildPresets": [
+    { "name": "macos", "configurePreset": "macos" },
+    { "name": "linux", "configurePreset": "linux" },
+    { "name": "windows", "configurePreset": "windows" },
     { "name": "default", "configurePreset": "default" }
   ],
   "testPresets": [
+    { "name": "macos", "configurePreset": "macos", "output": { "outputOnFailure": true } },
+    { "name": "linux", "configurePreset": "linux", "output": { "outputOnFailure": true } },
+    { "name": "windows", "configurePreset": "windows", "output": { "outputOnFailure": true } },
     { "name": "default", "configurePreset": "default", "output": { "outputOnFailure": true } }
   ]
 }

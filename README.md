@@ -1,5 +1,7 @@
 # 15 Puzzle
 
+[![CI](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/ci.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/ci.yml)
+
 A implementation of the classic 15 Puzzle built with C++ and raylib.  
 The project focuses on clarity, deterministic layout, and straightforward rendering logic.
 
@@ -92,6 +94,19 @@ The preset selects Homebrew LLVM, points CMake at libc++'s `std` module, and
 links against LLVM's libc++ runtime. `import std;` is gated behind CMake's
 experimental flag (`CMAKE_EXPERIMENTAL_CXX_IMPORT_STD`), so the exact CMake
 version matters; the gate UUID in `CMakeLists.txt` matches CMake 4.2.x.
+
+### Other platforms
+
+CI builds and tests on macOS, Linux, and Windows (see
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)); matching presets are
+provided:
+
+- **Linux** — upstream LLVM + libc++ (`clang++ -stdlib=libc++`):
+  `CC=clang-21 CXX=clang++-21 cmake --preset linux` then build/test with the
+  `linux` preset.
+- **Windows** — MSVC (ships its own `std` module): from a Visual Studio
+  developer prompt, `cmake --preset windows` then build/test with the `windows`
+  preset.
 
 ## Possible Improvements
 
