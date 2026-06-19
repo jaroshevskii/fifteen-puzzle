@@ -1,8 +1,20 @@
-#include "Features/Puzzle/PuzzleFeatureView.hpp"
-
-#include <format>
+module;
 
 #include <raylib.h>
+
+export module PuzzleFeatureView;
+
+import std;
+import PuzzleFeature;
+
+export namespace PuzzleFeatureView {
+
+std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State& state);
+void draw(const PuzzleFeature::State& state);
+
+}  // namespace PuzzleFeatureView
+
+// --- Implementation -----------------------------------------------------------
 
 namespace PuzzleFeatureView {
 
@@ -65,27 +77,31 @@ void drawOverlay() {
   DrawText(subtitle, (width - MeasureText(subtitle, 20)) / 2, (height + titleFontSize) / 2, 20, WHITE);
 }
 
-void drawTimerLabel(const PuzzleFeature::State& state, double nowSeconds) {
-  const int totalSeconds = PuzzleFeature::elapsedSeconds(state, nowSeconds);
+void drawTimerLabel(const PuzzleFeature::State& state) {
+  const int totalSeconds = PuzzleFeature::displayedSeconds(state);
   const int hours = totalSeconds / 3600;
   const int minutes = (totalSeconds % 3600) / 60;
   const int seconds = totalSeconds % 60;
 
-  const std::string prefix = state.isEnd ? "Victory Time " : "";
+  const std::string prefix = state.isGameOver ? "Victory Time " : "";
   const std::string label = std::format("{}{:02}:{:02}:{:02}", prefix, hours, minutes, seconds);
   DrawText(label.c_str(), 16, GetScreenHeight() - 40, 30, WHITE);
 }
 
 }  // namespace
 
-std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State& state, double nowSeconds) {
+std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State& state) {
   std::vector<PuzzleFeature::Action> actions;
+
+  // Drive the timer from the run loop; the reducer ignores ticks unless a game
+  // is in progress.
+  actions.push_back(PuzzleFeature::TimerTicked{});
 
   if (IsKeyPressed(KEY_R)) {
     actions.push_back(PuzzleFeature::RestartButtonTapped{});
   }
 
-  if (!state.isEnd) {
+  if (!state.isGameOver) {
     if (IsKeyPressed(KEY_S)) {
       actions.push_back(PuzzleFeature::ShuffleButtonTapped{});
     }
@@ -124,11 +140,12 @@ std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State& st
     static double lastWPressedAt = 0.0;
     constexpr double doublePressThreshold = 0.4;
     if (IsKeyPressed(KEY_W)) {
-      if (nowSeconds - lastWPressedAt < doublePressThreshold) {
+      const double now = GetTime();
+      if (now - lastWPressedAt < doublePressThreshold) {
         actions.push_back(PuzzleFeature::NearWinShortcutActivated{});
         lastWPressedAt = 0.0;
       } else {
-        lastWPressedAt = nowSeconds;
+        lastWPressedAt = now;
       }
     }
   } else {
@@ -140,12 +157,12 @@ std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State& st
   return actions;
 }
 
-void draw(const PuzzleFeature::State& state, double nowSeconds) {
+void draw(const PuzzleFeature::State& state) {
   drawBoard(state.tiles);
-  if (state.isEnd) {
+  if (state.isGameOver) {
     drawOverlay();
   }
-  drawTimerLabel(state, nowSeconds);
+  drawTimerLabel(state);
 }
 
 }  // namespace PuzzleFeatureView

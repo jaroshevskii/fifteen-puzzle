@@ -1,0 +1,25 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Homebrew LLVM + Ninja (C++26 modules, import std)",
+      "description": "C++ modules and `import std;` require upstream LLVM; Apple Clang does not support them.",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
+        "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
+        "CMAKE_CXX_STDLIB_MODULES_JSON": "/opt/homebrew/opt/llvm/lib/c++/libc++.modules.json",
+        "CMAKE_EXE_LINKER_FLAGS": "-L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++ -L/opt/homebrew/opt/llvm/lib -Wl,-rpath,/opt/homebrew/opt/llvm/lib"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "default", "configurePreset": "default" }
+  ],
+  "testPresets": [
+    { "name": "default", "configurePreset": "default", "output": { "outputOnFailure": true } }
+  ]
+}
