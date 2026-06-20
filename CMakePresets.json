@@ -17,6 +17,7 @@
         "CMAKE_C_COMPILER": "/opt/homebrew/opt/llvm/bin/clang",
         "CMAKE_CXX_COMPILER": "/opt/homebrew/opt/llvm/bin/clang++",
         "CMAKE_CXX_STDLIB_MODULES_JSON": "/opt/homebrew/opt/llvm/lib/c++/libc++.modules.json",
+        "CMAKE_PREFIX_PATH": "/opt/homebrew;/opt/homebrew/opt/openal-soft",
         "CMAKE_EXE_LINKER_FLAGS": "-L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++ -L/opt/homebrew/opt/llvm/lib -Wl,-rpath,/opt/homebrew/opt/llvm/lib"
       }
     },
@@ -49,12 +50,25 @@
     { "name": "macos", "configurePreset": "macos" },
     { "name": "linux", "configurePreset": "linux" },
     { "name": "windows", "configurePreset": "windows" },
-    { "name": "default", "configurePreset": "default" }
+    { "name": "default", "configurePreset": "default" },
+    { "name": "tests", "configurePreset": "macos", "targets": ["PuzzleFeatureTests"] },
+    { "name": "tests-linux", "configurePreset": "linux", "targets": ["PuzzleFeatureTests"] },
+    { "name": "tests-windows", "configurePreset": "windows", "targets": ["PuzzleFeatureTests"] }
   ],
   "testPresets": [
     { "name": "macos", "configurePreset": "macos", "output": { "outputOnFailure": true } },
     { "name": "linux", "configurePreset": "linux", "output": { "outputOnFailure": true } },
     { "name": "windows", "configurePreset": "windows", "output": { "outputOnFailure": true } },
     { "name": "default", "configurePreset": "default", "output": { "outputOnFailure": true } }
+  ],
+  "workflowPresets": [
+    {
+      "name": "test",
+      "steps": [
+        { "type": "configure", "name": "macos" },
+        { "type": "build", "name": "tests" },
+        { "type": "test", "name": "macos" }
+      ]
+    }
   ]
 }

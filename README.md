@@ -83,17 +83,44 @@ C++ modules and `import std;` require **upstream LLVM** (Apple Clang supports
 neither) plus the **Ninja** generator:
 
 ```sh
-brew install llvm ninja
+brew install llvm ninja raylib openal-soft
 
-cmake --preset default
-cmake --build --preset default
-ctest --preset default
+cmake --preset default        # configure
+cmake --build --preset default # build the app (tests are not built here)
 ```
+
+Tests are `EXCLUDE_FROM_ALL`, so a normal build never recompiles them. Build and
+run them on demand:
+
+```sh
+cmake --workflow --preset test   # configure + build tests + run them
+# or, against an existing build dir:
+cmake --build --preset tests && ctest --preset default
+```
+
+Dependencies are resolved **system-first**: if `raylib` / `openal-soft` are
+installed (above), CMake uses the prebuilt packages via `find_package` and skips
+compiling them entirely — a from-scratch build then takes **~2.5 s** instead of
+**~65 s**. Without them, it falls back to building pinned sources via
+FetchContent, so a fresh checkout still works anywhere. A `ccache` install is
+picked up automatically to cache any source builds.
 
 The preset selects Homebrew LLVM, points CMake at libc++'s `std` module, and
 links against LLVM's libc++ runtime. `import std;` is gated behind CMake's
 experimental flag (`CMAKE_EXPERIMENTAL_CXX_IMPORT_STD`), so the exact CMake
 version matters; the gate UUID in `CMakeLists.txt` matches CMake 4.2.x.
+
+### Working in Xcode
+
+`FifteenPuzzle.xcodeproj` is an **External Build System** project: open it and
+Build (⌘B) / Run (⌘R) delegate to the CMake + Ninja build via
+`scripts/xcode-build.sh`, using Xcode purely as an editor and runner.
+
+This indirection is necessary — Xcode's CMake generator does not support C++20
+modules, and Apple Clang supports neither modules nor `import std;`, so Xcode
+cannot build this code natively. For the same reason, Xcode's indexer will not
+fully understand `import std;` / `import <Module>;`; an editor backed by
+`compile_commands.json` (e.g. VS Code or CLion) gives better navigation.
 
 ### Other platforms
 
