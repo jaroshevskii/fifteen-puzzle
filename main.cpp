@@ -26,15 +26,15 @@ int main() {
     (void)values.get<Dependencies::RandomNumberGeneratorKey>();
   });
 
+  namespace Config = PuzzleFeature::Config;
   SetConfigFlags(FLAG_VSYNC_HINT);
-  InitWindow(
-      static_cast<int>(PuzzleFeature::Config::grid * PuzzleFeature::Config::cardSize),
-      static_cast<int>(PuzzleFeature::Config::grid * PuzzleFeature::Config::cardSize + PuzzleFeature::Config::uiHeight),
-      "15 Puzzle");
+  InitWindow(Config::windowWidth(Config::minGrid), Config::windowHeight(Config::minGrid), "N Puzzle");
 
   Store<AppFeature::State, AppFeature::Action> store(AppFeature::initialState(), AppFeature::body);
 
   store.send(AppFeature::Puzzle{PuzzleFeature::AppLaunched{}});
+
+  int displayedGrid = Config::minGrid;
 
   while (!WindowShouldClose()) {
     for (const auto& action : AppFeatureView::collectActions(store.state())) {
@@ -43,6 +43,13 @@ int main() {
 
     // Deliver any actions produced by background effects (e.g. the solver).
     store.pump();
+
+    // Resize the window when the board size changes.
+    const int grid = store.state().puzzle.grid;
+    if (grid != displayedGrid) {
+      SetWindowSize(Config::windowWidth(grid), Config::windowHeight(grid));
+      displayedGrid = grid;
+    }
 
     BeginDrawing();
     ClearBackground(BLACK);

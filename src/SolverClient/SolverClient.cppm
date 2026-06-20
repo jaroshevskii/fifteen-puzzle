@@ -3,29 +3,28 @@ export module SolverClient;
 import std;
 import Dependencies;
 
-// Interface for the puzzle-solver dependency. Given a board, it computes a
-// sequence of tile positions to slide that drives the board to solved, honoring
-// a `std::stop_token` for cooperative cancellation. The live IDA* implementation
-// lives in `SolverClientLive`; tests inject a deterministic stub.
+// Interface for the auto-solve planner. The game produces every board by legal
+// slides from the solved state and records that move history, so a solution is
+// simply the inverse of that history — O(moves) and independent of board size,
+// which is why auto-solve scales to arbitrarily large boards with no search.
+// The live planner lives in `SolverClientLive`; tests inject a stub.
 export namespace SolverClient {
 
 enum class SolveError {
-  unsolvable,
   cancelled,
 };
 
 struct Client {
-  // tiles: board labels ("" is the empty cell). Returns the ordered positions to
-  // tap (each adjacent to the empty cell at that step), or an error.
-  std::function<std::expected<std::vector<int>, SolveError>(std::vector<std::string>, std::stop_token)>
-      solve = [](std::vector<std::string>, std::stop_token) {
-        return std::expected<std::vector<int>, SolveError>{std::unexpect, SolveError::unsolvable};
+  // history: tile positions tapped (from solved) that produced the board.
+  // gridSize: board side length. Returns the positions to tap to reach solved.
+  std::function<std::expected<std::vector<int>, SolveError>(std::vector<int>, int, std::stop_token)> plan =
+      [](std::vector<int>, int, std::stop_token) {
+        return std::expected<std::vector<int>, SolveError>{std::in_place};
       };
 };
 
 struct Key : Dependencies::DependencyKey<Key, Client> {
-  // No-op by default; the real solver is supplied by `SolverClientLive`.
-  static Client liveValue() { return Client{}; }
+  static Client liveValue() { return Client{}; }  // real planner supplied by SolverClientLive
 };
 
 }  // namespace SolverClient

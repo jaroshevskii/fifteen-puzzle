@@ -4,26 +4,46 @@ import std;
 import ComposableArchitecture;
 import SolverClient;
 
-// Interface unit: declarations only. The implementation lives in
-// PuzzleFeature.cpp (a module implementation unit), so editing reducer logic
-// recompiles just that object and relinks — it does not change this module's
-// BMI, so importers (AppFeature, the view, tests) are not rebuilt.
+// Interface unit: declarations only (implementation in PuzzleFeature.cpp).
 export namespace PuzzleFeature {
 
+// Layout + sizing. The board grows with the grid up to a capped pixel size
+// (3x the base 4x4 board); beyond that the tiles shrink to fit. Sizes are pure
+// functions of the grid so the view and the window setup agree.
 namespace Config {
-constexpr float cardSize = 94.0f;
-constexpr int grid = 4;
-constexpr int tileCount = grid * grid;
+constexpr int minGrid = 4;             // level 0 — the classic 15-puzzle
+constexpr int maxGrid = 13;            // level 9
+constexpr float baseTileSize = 94.0f;
 constexpr float uiHeight = 50.0f;
+constexpr float maxBoardPixels = 3.0f * baseTileSize * minGrid;  // window caps at 3x the base board
+
+constexpr int gridForLevel(int level) {
+  const int g = minGrid + level;
+  return g < minGrid ? minGrid : (g > maxGrid ? maxGrid : g);
+}
+constexpr float tileSize(int grid) {
+  const float fit = maxBoardPixels / static_cast<float>(grid);
+  return fit < baseTileSize ? fit : baseTileSize;
+}
+constexpr float boardPixels(int grid) { return tileSize(grid) * static_cast<float>(grid); }
+constexpr int windowWidth(int grid) { return static_cast<int>(boardPixels(grid) + 0.5f); }
+constexpr int windowHeight(int grid) { return static_cast<int>(boardPixels(grid) + uiHeight + 0.5f); }
+constexpr int fontSize(int grid) {
+  const int f = static_cast<int>(tileSize(grid) * 0.5f);
+  return f < 10 ? 10 : f;
+}
 }  // namespace Config
 
 struct State {
+  int grid = Config::minGrid;
   bool isGameOver = false;
-  bool isSolving = false;       // an auto-solve is computing or animating
+  bool isSolving = false;
   bool isSoundEnabled = false;
   std::optional<int> lastDuration;
-  double nextMoveAt = 0.0;      // when the next auto-solve move plays
-  std::vector<int> pendingMoves;  // remaining solver moves (tile positions) to animate
+  double nextMoveAt = 0.0;
+  double solveInterval = 0.05;
+  std::vector<int> moveHistory;   // slides from solved that produced `tiles`
+  std::vector<int> pendingMoves;  // queued auto-solve moves to animate
   int secondsElapsed = 0;
   std::optional<double> startDate;
   std::vector<std::string> tiles;
@@ -31,10 +51,11 @@ struct State {
   bool operator==(const State&) const = default;
 };
 
-// Action cases are named after what the user does, or after the data an effect
-// feeds back (e.g. `TimerStarted`, `TimerTicked`), mirroring TCA conventions.
 struct AppLaunched {};
 struct AutoSolveButtonTapped {};
+struct BoardSizeSelected {
+  int grid = Config::minGrid;
+};
 struct NearWinShortcutActivated {};
 struct RestartButtonTapped {};
 struct ShuffleButtonTapped {};
@@ -43,7 +64,7 @@ struct SolverSucceeded {
   std::vector<int> moves;
 };
 struct SolverFailed {
-  SolverClient::SolveError error = SolverClient::SolveError::unsolvable;
+  SolverClient::SolveError error = SolverClient::SolveError::cancelled;
 };
 struct TileTapped {
   int index = 0;
@@ -56,6 +77,7 @@ struct TimerTicked {};
 using Action = std::variant<
     AppLaunched,
     AutoSolveButtonTapped,
+    BoardSizeSelected,
     NearWinShortcutActivated,
     RestartButtonTapped,
     ShuffleButtonTapped,

@@ -47,6 +47,7 @@ void testTileTappedSwapsAdjacentTile() {
 
         store.send(PuzzleFeature::TileTapped{15}, [](PuzzleFeature::State& state) {
           std::swap(state.tiles[14], state.tiles[15]);  // board is now solved
+          state.moveHistory.push_back(15);              // the slide is recorded
           state.isGameOver = true;
           state.lastDuration = 0;  // clock pinned at 0
           state.startDate = std::nullopt;
@@ -109,7 +110,8 @@ void testAppLaunchedShufflesAndStartsTimer() {
         const auto solvedTiles = PuzzleFeature::initialState().tiles;
 
         store.send(PuzzleFeature::AppLaunched{}, [&store](PuzzleFeature::State& state) {
-          state.tiles = store.state().tiles;  // shuffled by the seeded generator
+          state.tiles = store.state().tiles;              // shuffled by the seeded generator
+          state.moveHistory = store.state().moveHistory;  // recorded scramble moves
         });
         expect(store.state().tiles != solvedTiles, "AppLaunched shuffles the board");
 
@@ -124,11 +126,11 @@ void testAppLaunchedShufflesAndStartsTimer() {
       });
 }
 
-// A SolverClient stub returning a fixed path, so the async auto-solve flow is
+// A SolverClient stub returning a fixed plan, so the async auto-solve flow is
 // deterministic and thread-free under TestStore (effects run inline).
-SolverClient::Client stubSolver(std::vector<int> path) {
-  return SolverClient::Client{.solve = [path](std::vector<std::string>, std::stop_token) {
-    return std::expected<std::vector<int>, SolverClient::SolveError>{path};
+SolverClient::Client stubSolver(std::vector<int> plan) {
+  return SolverClient::Client{.plan = [plan](std::vector<int>, int, std::stop_token) {
+    return std::expected<std::vector<int>, SolverClient::SolveError>{plan};
   }};
 }
 
@@ -150,13 +152,15 @@ void testAutoSolveAnimatesToSolved() {
         store.receive([](PuzzleFeature::State& state) {
           state.pendingMoves = {15};
           state.nextMoveAt = 0.0;
+          state.solveInterval = 0.10;  // clamp(4.0 / 1 move)
         });
 
         // A tick at/after nextMoveAt plays the queued move, solving the board.
         store.send(PuzzleFeature::TimerTicked{}, [](PuzzleFeature::State& state) {
           std::swap(state.tiles[14], state.tiles[15]);
+          state.moveHistory.push_back(15);
           state.pendingMoves.clear();
-          state.nextMoveAt = 0.16;  // kSolveMoveInterval
+          state.nextMoveAt += 0.10;  // advanced by one interval
           state.isSolving = false;
           state.isGameOver = true;
           state.lastDuration = 0;
@@ -184,13 +188,15 @@ void testInteractionCancelsAutoSolve() {
         store.receive([](PuzzleFeature::State& state) {
           state.pendingMoves = {15};
           state.nextMoveAt = 0.0;
+          state.solveInterval = 0.10;
         });
 
         // Shuffling interrupts the solve: solving stops and moves are dropped.
         store.send(PuzzleFeature::ShuffleButtonTapped{}, [&store](PuzzleFeature::State& state) {
           state.isSolving = false;
           state.pendingMoves.clear();
-          state.tiles = store.state().tiles;  // reshuffled by the seeded generator
+          state.tiles = store.state().tiles;              // reshuffled by the seeded generator
+          state.moveHistory = store.state().moveHistory;  // history reset to the new scramble
         });
 
         expect(!store.failed(), "interaction cancels the auto-solve");

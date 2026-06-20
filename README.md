@@ -51,24 +51,26 @@ library is consumed via **`import std;`**, and the C audio/graphics libraries ar
 
 ### Asynchronous auto-solver
 
-Pressing **H** runs a background **IDA\*** solver (`SolverClient`) and animates
-the board to solved. It showcases what the effect/dependency architecture makes
-tractable:
+Pressing **H** auto-solves the board and animates it to solved, at any size. The
+game generates every board by legal slides from the solved state and records
+that move history, so a solution is just the **inverse of the history**
+(`SolverClient`). That is `O(moves)` and independent of board size — a 13×13
+solves as instantly as a 4×4, with no search. It showcases what the
+effect/dependency architecture makes tractable:
 
 - The reducer returns an **async effect** (`Effect::task`) that the `Store` runs
-  on a `std::jthread`. The solver streams its result back as an action through a
+  on a `std::jthread`. The planner streams its result back as an action through a
   thread-safe `Send`; state is still mutated only on the main thread, so there
   are no locks or data races in feature code.
 - It is **cancellable**: `Effect::cancel` requests the worker's `std::stop_token`,
-  and any interaction (tap, shuffle, restart, or pressing H again) cancels an
-  in-flight solve instantly.
+  and any interaction (tap, shuffle, restart, resize, or pressing H again)
+  cancels an in-flight solve instantly.
 - It stays **fully testable**: tests inject a stub `SolverClient` and a pinned
   clock, and `TestStore` runs the async effect inline — deterministic, no threads
-  (see `tests/`). A separate `SolverClientTests` checks the real solver.
+  (see `tests/`). `SolverClientTests` checks the planner across sizes 4×4–13×13.
 
-The solver uses `std::expected` for its result, `std::mdspan` for the 4×4
-Manhattan-distance heuristic, and `std::stop_token` for cooperative cancellation
-— all under `-std=c++26`.
+`std::expected` carries the result/cancellation, and `std::stop_token` drives
+cooperative cancellation — all under `-std=c++26`.
 
 [tca]: https://www.pointfree.co/blog/posts/206-beta-preview-composablearchitecture-2-0
 [deps]: https://github.com/pointfreeco/swift-dependencies
@@ -85,12 +87,16 @@ Manhattan-distance heuristic, and `std::stop_token` for cooperative cancellation
 ## Controls
 
 - Move tile — Left mouse click or arrow keys
+- Resize board — keys `0` (4×4) … `9` (13×13)
 - Shuffle — S
 - Restart — R
 - Toggle tick sound — M
 - Auto-solve (toggle) — H
 - Near-win shortcut — double-press W
 - Restart after victory — Mouse click or R
+
+The board is resizable from 4×4 up to 13×13. The window grows with the board up
+to a cap (3× the base 4×4 board); beyond that, tiles shrink to fit.
 
 ## Game Logic
 
