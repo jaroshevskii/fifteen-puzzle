@@ -3,12 +3,18 @@ module PuzzleFeature;  // implementation unit for the PuzzleFeature module
 import std;
 import ComposableArchitecture;
 import AudioPlayerClient;
+import SolverClient;
 
 namespace PuzzleFeature {
 
 namespace {
 
 using Dependencies::RandomNumberGenerator;
+
+// Cancellation id for the background auto-solve task, and the delay between
+// animated solver moves.
+constexpr std::string_view kSolverCancelId = "auto-solve";
+constexpr double kSolveMoveInterval = 0.16;
 
 int indexRow(int index) { return index / Config::grid; }
 int indexCol(int index) { return index % Config::grid; }
@@ -179,6 +185,17 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
 
     Effect effect = Effect::none();
 
+    // Any direct interaction interrupts an in-progress auto-solve and cancels
+    // the background search task.
+    bool interruptSolve = false;
+    const auto stopSolving = [&] {
+      if (state.isSolving) {
+        state.isSolving = false;
+        state.pendingMoves.clear();
+        interruptSolve = true;
+      }
+    };
+
     std::visit(
         [&](auto&& value) {
           using Value = std::decay_t<decltype(value)>;
@@ -188,9 +205,41 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
               state.tiles = shuffledSolvableTiles(*rng);
               effect = startTimer();
             }
+          } else if constexpr (std::is_same_v<Value, AutoSolveButtonTapped>) {
+            if (state.isSolving) {
+              stopSolving();  // toggle off
+            } else if (state.startDate.has_value() && !state.isGameOver) {
+              state.isSolving = true;
+              // Kick off the solver on a background thread; it reads the
+              // controlled SolverClient dependency and reports back as an action.
+              effect = Effect::task([tiles = state.tiles](
+                                        const ComposableArchitecture::Send<Action>& send, std::stop_token stop) {
+                         Dependencies::Dependency<SolverClient::Key> solver;
+                         std::expected<std::vector<int>, SolverClient::SolveError> result =
+                             solver->solve(tiles, std::move(stop));
+                         if (result.has_value()) {
+                           send(SolverSucceeded{std::move(*result)});
+                         } else {
+                           send(SolverFailed{result.error()});
+                         }
+                       }).cancellable(std::string(kSolverCancelId));
+            }
+          } else if constexpr (std::is_same_v<Value, SolverSucceeded>) {
+            if (state.isSolving) {
+              state.pendingMoves = std::move(value.moves);
+              state.nextMoveAt = date->now();  // begin animating immediately
+              if (state.pendingMoves.empty()) {
+                state.isSolving = false;
+              }
+            }
+          } else if constexpr (std::is_same_v<Value, SolverFailed>) {
+            state.isSolving = false;
+            state.pendingMoves.clear();
           } else if constexpr (std::is_same_v<Value, NearWinShortcutActivated>) {
+            stopSolving();
             state.tiles = nearWinTiles(*rng);
           } else if constexpr (std::is_same_v<Value, RestartButtonTapped>) {
+            stopSolving();
             state.isGameOver = false;
             state.lastDuration = std::nullopt;
             state.secondsElapsed = 0;
@@ -198,21 +247,27 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
             state.tiles = shuffledSolvableTiles(*rng);
             effect = startTimer();
           } else if constexpr (std::is_same_v<Value, ShuffleButtonTapped>) {
+            stopSolving();
             state.tiles = shuffledSolvableTiles(*rng);
           } else if constexpr (std::is_same_v<Value, SoundToggleButtonTapped>) {
             state.isSoundEnabled = !state.isSoundEnabled;
           } else if constexpr (std::is_same_v<Value, TileTapped>) {
-            const auto empty = emptyIndex(state);
-            if (empty.has_value() && value.index >= 0 && value.index < static_cast<int>(state.tiles.size()) &&
-                isAdjacent(value.index, *empty)) {
-              std::swap(state.tiles[value.index], state.tiles[*empty]);
+            if (state.isSolving) {
+              stopSolving();  // user takes over; ignore this tap
+            } else {
+              const auto empty = emptyIndex(state);
+              if (empty.has_value() && value.index >= 0 && value.index < static_cast<int>(state.tiles.size()) &&
+                  isAdjacent(value.index, *empty)) {
+                std::swap(state.tiles[value.index], state.tiles[*empty]);
+              }
             }
           } else if constexpr (std::is_same_v<Value, TimerStarted>) {
             state.startDate = value.date;
             state.secondsElapsed = 0;
           } else if constexpr (std::is_same_v<Value, TimerTicked>) {
             if (state.startDate.has_value() && !state.isGameOver) {
-              const int seconds = static_cast<int>(date->now() - *state.startDate);
+              const double now = date->now();
+              const int seconds = static_cast<int>(now - *state.startDate);
               if (seconds > state.secondsElapsed) {
                 state.secondsElapsed = seconds;
                 if (state.isSoundEnabled) {
@@ -222,10 +277,28 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
                   });
                 }
               }
+              // Animate the auto-solve: play one queued move per interval.
+              if (state.isSolving && !state.pendingMoves.empty() && now >= state.nextMoveAt) {
+                const int position = state.pendingMoves.front();
+                const auto empty = emptyIndex(state);
+                if (empty.has_value() && position >= 0 && position < static_cast<int>(state.tiles.size()) &&
+                    isAdjacent(position, *empty)) {
+                  std::swap(state.tiles[position], state.tiles[*empty]);
+                }
+                state.pendingMoves.erase(state.pendingMoves.begin());
+                state.nextMoveAt = now + kSolveMoveInterval;
+                if (state.pendingMoves.empty()) {
+                  state.isSolving = false;
+                }
+              }
             }
           }
         },
         action);
+
+    if (interruptSolve) {
+      effect = Effect::merge({Effect::cancel(std::string(kSolverCancelId)), std::move(effect)});
+    }
 
     const bool solved = isSolved(state.tiles);
     if (solved && !state.isGameOver) {

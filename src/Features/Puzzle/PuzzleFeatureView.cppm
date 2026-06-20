@@ -101,6 +101,11 @@ std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State& st
     actions.push_back(PuzzleFeature::RestartButtonTapped{});
   }
 
+  // H toggles the background auto-solver (works mid-solve to cancel).
+  if (IsKeyPressed(KEY_H)) {
+    actions.push_back(PuzzleFeature::AutoSolveButtonTapped{});
+  }
+
   if (!state.isGameOver) {
     if (IsKeyPressed(KEY_S)) {
       actions.push_back(PuzzleFeature::ShuffleButtonTapped{});
@@ -157,10 +162,20 @@ std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State& st
   return actions;
 }
 
+void drawSolvingBanner(const PuzzleFeature::State& state) {
+  const int width = GetScreenWidth();
+  DrawRectangle(0, 0, width, 28, Color{0, 0, 0, 180});
+  const char* label = state.pendingMoves.empty() ? "Solving…" : "Auto-solving — press H or click to stop";
+  DrawText(label, 10, 6, 16, GREEN);
+}
+
 void draw(const PuzzleFeature::State& state) {
   drawBoard(state.tiles);
   if (state.isGameOver) {
     drawOverlay();
+  }
+  if (state.isSolving) {
+    drawSolvingBanner(state);
   }
   drawTimerLabel(state);
 }

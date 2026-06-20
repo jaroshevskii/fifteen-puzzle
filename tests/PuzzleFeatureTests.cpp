@@ -7,6 +7,7 @@
 import std;
 import ComposableArchitecture;
 import PuzzleFeature;
+import SolverClient;
 
 using ComposableArchitecture::TestStore;
 using Dependencies::DateGenerator;
@@ -123,6 +124,80 @@ void testAppLaunchedShufflesAndStartsTimer() {
       });
 }
 
+// A SolverClient stub returning a fixed path, so the async auto-solve flow is
+// deterministic and thread-free under TestStore (effects run inline).
+SolverClient::Client stubSolver(std::vector<int> path) {
+  return SolverClient::Client{.solve = [path](std::vector<std::string>, std::stop_token) {
+    return std::expected<std::vector<int>, SolverClient::SolveError>{path};
+  }};
+}
+
+// AutoSolve kicks off the (stubbed) solver, receives its moves, and animates
+// them on the controlled clock until the board is solved.
+void testAutoSolveAnimatesToSolved() {
+  withDependencies(
+      [](DependencyValues& values) {
+        values.context = DependencyContext::test;
+        values.set<DateGeneratorKey>(DateGenerator::constant(0.0));
+        values.set<SolverClient::Key>(stubSolver({15}));  // one move solves almostSolvedState
+      },
+      [] {
+        TestStore<PuzzleFeature::State, PuzzleFeature::Action> store(almostSolvedState(), PuzzleFeature::body);
+
+        store.send(PuzzleFeature::AutoSolveButtonTapped{}, [](PuzzleFeature::State& state) { state.isSolving = true; });
+
+        // The background task (run inline here) reports its solution.
+        store.receive([](PuzzleFeature::State& state) {
+          state.pendingMoves = {15};
+          state.nextMoveAt = 0.0;
+        });
+
+        // A tick at/after nextMoveAt plays the queued move, solving the board.
+        store.send(PuzzleFeature::TimerTicked{}, [](PuzzleFeature::State& state) {
+          std::swap(state.tiles[14], state.tiles[15]);
+          state.pendingMoves.clear();
+          state.nextMoveAt = 0.16;  // kSolveMoveInterval
+          state.isSolving = false;
+          state.isGameOver = true;
+          state.lastDuration = 0;
+          state.startDate = std::nullopt;
+        });
+
+        expect(!store.failed(), "AutoSolve animates the board to solved");
+        return 0;
+      });
+}
+
+// Interacting mid-solve cancels the auto-solve.
+void testInteractionCancelsAutoSolve() {
+  withDependencies(
+      [](DependencyValues& values) {
+        values.context = DependencyContext::test;
+        values.set<DateGeneratorKey>(DateGenerator::constant(0.0));
+        values.set<RandomNumberGeneratorKey>(RandomNumberGenerator::seeded(7));
+        values.set<SolverClient::Key>(stubSolver({15}));
+      },
+      [] {
+        TestStore<PuzzleFeature::State, PuzzleFeature::Action> store(almostSolvedState(), PuzzleFeature::body);
+
+        store.send(PuzzleFeature::AutoSolveButtonTapped{}, [](PuzzleFeature::State& state) { state.isSolving = true; });
+        store.receive([](PuzzleFeature::State& state) {
+          state.pendingMoves = {15};
+          state.nextMoveAt = 0.0;
+        });
+
+        // Shuffling interrupts the solve: solving stops and moves are dropped.
+        store.send(PuzzleFeature::ShuffleButtonTapped{}, [&store](PuzzleFeature::State& state) {
+          state.isSolving = false;
+          state.pendingMoves.clear();
+          state.tiles = store.state().tiles;  // reshuffled by the seeded generator
+        });
+
+        expect(!store.failed(), "interaction cancels the auto-solve");
+        return 0;
+      });
+}
+
 }  // namespace
 
 int main() {
@@ -130,6 +205,8 @@ int main() {
   testTileTappedIgnoresNonAdjacentTile();
   testTimerTickedAdvancesElapsedSeconds();
   testAppLaunchedShufflesAndStartsTimer();
+  testAutoSolveAnimatesToSolved();
+  testInteractionCancelsAutoSolve();
 
   if (failures == 0) {
     std::println("All PuzzleFeature tests passed.");

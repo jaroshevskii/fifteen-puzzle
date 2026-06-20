@@ -51,9 +51,9 @@
     { "name": "linux", "configurePreset": "linux" },
     { "name": "windows", "configurePreset": "windows" },
     { "name": "default", "configurePreset": "default" },
-    { "name": "tests", "configurePreset": "macos", "targets": ["PuzzleFeatureTests"] },
-    { "name": "tests-linux", "configurePreset": "linux", "targets": ["PuzzleFeatureTests"] },
-    { "name": "tests-windows", "configurePreset": "windows", "targets": ["PuzzleFeatureTests"] }
+    { "name": "tests", "configurePreset": "macos", "targets": ["PuzzleFeatureTests", "SolverClientTests"] },
+    { "name": "tests-linux", "configurePreset": "linux", "targets": ["PuzzleFeatureTests", "SolverClientTests"] },
+    { "name": "tests-windows", "configurePreset": "windows", "targets": ["PuzzleFeatureTests", "SolverClientTests"] }
   ],
   "testPresets": [
     { "name": "macos", "configurePreset": "macos", "output": { "outputOnFailure": true } },

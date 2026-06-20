@@ -2,6 +2,7 @@ export module PuzzleFeature;
 
 import std;
 import ComposableArchitecture;
+import SolverClient;
 
 // Interface unit: declarations only. The implementation lives in
 // PuzzleFeature.cpp (a module implementation unit), so editing reducer logic
@@ -18,8 +19,11 @@ constexpr float uiHeight = 50.0f;
 
 struct State {
   bool isGameOver = false;
+  bool isSolving = false;       // an auto-solve is computing or animating
   bool isSoundEnabled = false;
   std::optional<int> lastDuration;
+  double nextMoveAt = 0.0;      // when the next auto-solve move plays
+  std::vector<int> pendingMoves;  // remaining solver moves (tile positions) to animate
   int secondsElapsed = 0;
   std::optional<double> startDate;
   std::vector<std::string> tiles;
@@ -30,10 +34,17 @@ struct State {
 // Action cases are named after what the user does, or after the data an effect
 // feeds back (e.g. `TimerStarted`, `TimerTicked`), mirroring TCA conventions.
 struct AppLaunched {};
+struct AutoSolveButtonTapped {};
 struct NearWinShortcutActivated {};
 struct RestartButtonTapped {};
 struct ShuffleButtonTapped {};
 struct SoundToggleButtonTapped {};
+struct SolverSucceeded {
+  std::vector<int> moves;
+};
+struct SolverFailed {
+  SolverClient::SolveError error = SolverClient::SolveError::unsolvable;
+};
 struct TileTapped {
   int index = 0;
 };
@@ -44,10 +55,13 @@ struct TimerTicked {};
 
 using Action = std::variant<
     AppLaunched,
+    AutoSolveButtonTapped,
     NearWinShortcutActivated,
     RestartButtonTapped,
     ShuffleButtonTapped,
     SoundToggleButtonTapped,
+    SolverSucceeded,
+    SolverFailed,
     TileTapped,
     TimerStarted,
     TimerTicked>;

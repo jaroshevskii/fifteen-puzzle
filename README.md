@@ -49,6 +49,27 @@ module per concept, with partitions for the core libraries). The standard
 library is consumed via **`import std;`**, and the C audio/graphics libraries are
 `#include`d only in each module's global module fragment.
 
+### Asynchronous auto-solver
+
+Pressing **H** runs a background **IDA\*** solver (`SolverClient`) and animates
+the board to solved. It showcases what the effect/dependency architecture makes
+tractable:
+
+- The reducer returns an **async effect** (`Effect::task`) that the `Store` runs
+  on a `std::jthread`. The solver streams its result back as an action through a
+  thread-safe `Send`; state is still mutated only on the main thread, so there
+  are no locks or data races in feature code.
+- It is **cancellable**: `Effect::cancel` requests the worker's `std::stop_token`,
+  and any interaction (tap, shuffle, restart, or pressing H again) cancels an
+  in-flight solve instantly.
+- It stays **fully testable**: tests inject a stub `SolverClient` and a pinned
+  clock, and `TestStore` runs the async effect inline — deterministic, no threads
+  (see `tests/`). A separate `SolverClientTests` checks the real solver.
+
+The solver uses `std::expected` for its result, `std::mdspan` for the 4×4
+Manhattan-distance heuristic, and `std::stop_token` for cooperative cancellation
+— all under `-std=c++26`.
+
 [tca]: https://www.pointfree.co/blog/posts/206-beta-preview-composablearchitecture-2-0
 [deps]: https://github.com/pointfreeco/swift-dependencies
 [isowords]: https://github.com/pointfreeco/isowords
@@ -67,6 +88,7 @@ library is consumed via **`import std;`**, and the C audio/graphics libraries ar
 - Shuffle — S
 - Restart — R
 - Toggle tick sound — M
+- Auto-solve (toggle) — H
 - Near-win shortcut — double-press W
 - Restart after victory — Mouse click or R
 

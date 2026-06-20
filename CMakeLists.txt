@@ -125,13 +125,19 @@ target_link_libraries(AudioPlayerClient PUBLIC Dependencies)
 add_module_library(AudioPlayerClientLive src/AudioPlayerClient/AudioPlayerClientLive.cppm)
 target_link_libraries(AudioPlayerClientLive PUBLIC AudioPlayerClient PRIVATE ${OPENAL_TARGET})
 
+add_module_library(SolverClient src/SolverClient/SolverClient.cppm)
+target_link_libraries(SolverClient PUBLIC Dependencies)
+
+add_module_library(SolverClientLive src/SolverClient/SolverClientLive.cppm)
+target_link_libraries(SolverClientLive PUBLIC SolverClient)
+
 # --- Features -----------------------------------------------------------------
 
 add_module_library(PuzzleFeature src/Features/Puzzle/PuzzleFeature.cppm)
 # Implementation unit: editing reducer logic here recompiles only this object,
 # leaving the module's BMI (and therefore its importers) untouched.
 target_sources(PuzzleFeature PRIVATE src/Features/Puzzle/PuzzleFeature.cpp)
-target_link_libraries(PuzzleFeature PUBLIC ComposableArchitecture AudioPlayerClient)
+target_link_libraries(PuzzleFeature PUBLIC ComposableArchitecture AudioPlayerClient SolverClient)
 
 add_module_library(PuzzleFeatureView src/Features/Puzzle/PuzzleFeatureView.cppm)
 target_link_libraries(PuzzleFeatureView PUBLIC PuzzleFeature raylib)
@@ -150,6 +156,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(${PROJECT_NAME} PRIVATE
   AppFeatureView AppFeature PuzzleFeature ComposableArchitecture
   AudioPlayerClient AudioPlayerClientLive
+  SolverClient SolverClientLive
 )
 
 # --- Tests --------------------------------------------------------------------
@@ -169,3 +176,10 @@ set_target_properties(PuzzleFeatureTests PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(PuzzleFeatureTests PRIVATE PuzzleFeature ComposableArchitecture)
 
 add_test(NAME PuzzleFeatureTests COMMAND PuzzleFeatureTests)
+
+add_executable(SolverClientTests EXCLUDE_FROM_ALL tests/SolverClientTests.cpp)
+target_compile_features(SolverClientTests PRIVATE cxx_std_26)
+set_target_properties(SolverClientTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(SolverClientTests PRIVATE SolverClient SolverClientLive)
+
+add_test(NAME SolverClientTests COMMAND SolverClientTests)

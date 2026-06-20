@@ -5,9 +5,11 @@ import :Effect;
 import :Reducer;
 
 // A C++ port of TCA's `TestStore`. It drives a reducer the way the real store
-// does, but lets a test assert how state changes after each step. Actions
-// emitted by effects are not applied automatically; they are queued and must be
-// drained with `receive`, mirroring the exhaustive behavior of the Swift library.
+// does, but lets a test assert how state changes after each step. Unlike the
+// live `Store`, async effects run *inline* (synchronously, with a never-cancelled
+// token), so tests are deterministic and thread-free — the analog of TCA's
+// immediate test scheduler. Effect-produced actions are queued and drained with
+// `receive`, mirroring the exhaustive behavior of the Swift library.
 export namespace ComposableArchitecture {
 
 template <typename State, typename Action>
@@ -29,12 +31,10 @@ class TestStore {
   const State& state() const { return state_; }
   bool failed() const { return failed_; }
 
-  // Sends an action and asserts the resulting state change.
   void send(const Action& action, const std::function<void(State&)>& assert = {}) {
     apply(action, assert, "send");
   }
 
-  // Receives the next effect-produced action and asserts the resulting change.
   void receive(const std::function<void(State&)>& assert = {}) {
     if (pending_.empty()) {
       reportFailure("receive called but no actions were produced by effects");
@@ -49,10 +49,18 @@ class TestStore {
   void apply(const Action& action, const std::function<void(State&)>& assert, std::string_view step) {
     State expected = state_;
     Effect<Action> effect = reducer_(state_, action);
-    if (effect) {
-      Send<Action> capture{[this](Action produced) { pending_.push_back(std::move(produced)); }};
-      effect(capture);
+
+    Send<Action> capture{[this](Action produced) { pending_.push_back(std::move(produced)); }};
+    std::stop_source never;
+    for (const auto& item : effect.items()) {
+      if (item.kind == EffectKind::sync) {
+        item.sync(capture);
+      } else if (item.kind == EffectKind::async) {
+        item.async(capture, never.get_token());  // run inline for determinism
+      }
+      // cancel items are no-ops here: inline async tasks already ran to completion.
     }
+
     if (assert) {
       assert(expected);
     }
