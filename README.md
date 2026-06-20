@@ -1,6 +1,9 @@
 # 15 Puzzle
 
-[![CI](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/ci.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/ci.yml)
+[![macOS](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/macos.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/macos.yml)
+[![Linux](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/linux.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/linux.yml)
+[![Windows](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/windows.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/windows.yml)
+[![Release](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/release.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/release.yml)
 
 A implementation of the classic 15 Puzzle built with C++ and raylib.  
 The project focuses on clarity, deterministic layout, and straightforward rendering logic.
@@ -105,38 +108,86 @@ to a cap (3× the base 4×4 board); beyond that, tiles shrink to fit.
 - Shuffles are validated for solvability
 - Victory condition: tiles 1–15 are ordered and the empty tile is last
 
-## Building and testing
+## Building
 
-C++ modules and `import std;` require **upstream LLVM** (Apple Clang supports
-neither) plus the **Ninja** generator:
+The project uses **C++ modules** and **`import std;`**, which needs a recent
+toolchain and the **Ninja** generator. C++ standard: **C++26** on Clang/GCC,
+**C++23** on MSVC (CMake 4.2 doesn't support the C++26 dialect or `import std`
+at C++26 for MSVC — the code is C++23-compatible, so nothing is lost). CMake is
+pinned to **4.2.x** because `import std;` is gated behind
+`CMAKE_EXPERIMENTAL_CXX_IMPORT_STD`, whose UUID is CMake-version specific.
+
+A matching configure preset is provided per platform (`macos`, `linux`,
+`windows`); `default` aliases `macos`. CI runs each platform in its own
+workflow — see the badges above.
+
+### macOS
+
+Apple Clang supports neither C++ modules nor `import std;`, so use Homebrew LLVM:
 
 ```sh
 brew install llvm ninja raylib openal-soft
-
-cmake --preset default        # configure
-cmake --build --preset default # build the app (tests are not built here)
+cmake --preset macos
+cmake --build --preset macos
 ```
+
+### Linux
+
+Upstream LLVM + libc++ (Clang 21 here, e.g. via <https://apt.llvm.org>):
+
+```sh
+sudo ./llvm.sh 21
+sudo apt-get install -y clang-21 lld-21 libc++-21-dev libc++abi-21-dev \
+  libopenal-dev libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
+  libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev
+sudo apt-get install -y libraylib-dev || true   # optional; built from source if absent
+
+CC=clang-21 CXX=clang++-21 cmake --preset linux \
+  -DCMAKE_CXX_STDLIB_MODULES_JSON="$(clang++-21 -stdlib=libc++ -print-file-name=libc++.modules.json)"
+cmake --build --preset linux
+```
+
+### Windows
+
+MSVC (Visual Studio 2022) ships its own `std` module. From a *Developer
+Command Prompt for VS 2022* (so `cl` and Ninja are on `PATH`):
+
+```bat
+cmake --preset windows
+cmake --build --preset windows
+```
+
+### Dependencies (fast vs. self-contained)
+
+- **Default (dev/CI):** raylib + openal-soft are resolved **system-first** via
+  `find_package` (the packages installed above). This skips compiling ~170
+  third-party translation units and links them dynamically — a from-scratch
+  build drops from **~65 s to ~2.5 s**. If a package is missing, CMake falls back
+  to building it from pinned sources (FetchContent), so a fresh checkout still
+  works anywhere. A `ccache` install is picked up automatically.
+- **Release (`-DFIFTEEN_STATIC_DEPS=ON`):** the deps are built from source and
+  linked **statically** into a self-contained, optimized binary. This is what
+  the release workflow uses.
+
+## Testing
 
 Tests are `EXCLUDE_FROM_ALL`, so a normal build never recompiles them. Build and
 run them on demand:
 
 ```sh
-cmake --workflow --preset test   # configure + build tests + run them
-# or, against an existing build dir:
-cmake --build --preset tests && ctest --preset default
+cmake --workflow --preset test          # macOS: configure + build tests + run
+# or, against an existing build dir (any platform):
+cmake --build --preset tests && ctest --preset macos   # tests / tests-linux / tests-windows
 ```
 
-Dependencies are resolved **system-first**: if `raylib` / `openal-soft` are
-installed (above), CMake uses the prebuilt packages via `find_package` and skips
-compiling them entirely — a from-scratch build then takes **~2.5 s** instead of
-**~65 s**. Without them, it falls back to building pinned sources via
-FetchContent, so a fresh checkout still works anywhere. A `ccache` install is
-picked up automatically to cache any source builds.
+## Releases
 
-The preset selects Homebrew LLVM, points CMake at libc++'s `std` module, and
-links against LLVM's libc++ runtime. `import std;` is gated behind CMake's
-experimental flag (`CMAKE_EXPERIMENTAL_CXX_IMPORT_STD`), so the exact CMake
-version matters; the gate UUID in `CMakeLists.txt` matches CMake 4.2.x.
+Pushing a published GitHub Release triggers
+[`release.yml`](.github/workflows/release.yml), which builds an optimized,
+statically-linked binary (`FIFTEEN_STATIC_DEPS=ON`, `Release`) for macOS, Linux,
+and Windows and attaches them to the release. Debug/CI builds instead link the
+dependencies dynamically (faster to link). *(Binaries still depend on the
+toolchain's C++ runtime — libc++ on Clang, the MSVC runtime on Windows.)*
 
 ### Working in Xcode
 
@@ -149,19 +200,6 @@ modules, and Apple Clang supports neither modules nor `import std;`, so Xcode
 cannot build this code natively. For the same reason, Xcode's indexer will not
 fully understand `import std;` / `import <Module>;`; an editor backed by
 `compile_commands.json` (e.g. VS Code or CLion) gives better navigation.
-
-### Other platforms
-
-CI builds and tests on macOS, Linux, and Windows (see
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml)); matching presets are
-provided:
-
-- **Linux** — upstream LLVM + libc++ (`clang++ -stdlib=libc++`):
-  `CC=clang-21 CXX=clang++-21 cmake --preset linux` then build/test with the
-  `linux` preset.
-- **Windows** — MSVC (ships its own `std` module): from a Visual Studio
-  developer prompt, `cmake --preset windows` then build/test with the `windows`
-  preset.
 
 ## Possible Improvements
 

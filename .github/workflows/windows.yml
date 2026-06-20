@@ -1,0 +1,41 @@
+name: Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CMake + Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "4.2.3"
+          ninjaVersion: "latest"
+
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # No fast prebuilt raylib/openal package exists for Windows runners, so the
+      # deps are built from source and cached across runs (the same "don't refetch"
+      # win as system packages). MSVC builds at C++23: CMake 4.2 supports neither
+      # the C++26 dialect nor `import std` at C++26 for MSVC.
+      - name: Cache built dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: Windows-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: Windows-deps-
+
+      - name: Configure / Build / Test
+        shell: cmd
+        run: |
+          cmake --preset windows
+          cmake --build --preset windows
+          cmake --build --preset tests-windows
+          ctest --preset windows

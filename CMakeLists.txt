@@ -35,15 +35,23 @@ endif()
 
 include(FetchContent)
 
-# Dependencies are resolved system-first: if a prebuilt package is installed
-# (e.g. `brew install raylib openal-soft`), we use it and skip compiling ~170
-# third-party translation units entirely. Otherwise we fall back to building
-# from pinned sources via FetchContent, so a fresh checkout still works anywhere.
+# Dependency strategy:
+#   * Default (dev / CI): resolve raylib + openal-soft system-first via
+#     find_package (installed by brew/apt/vcpkg). This skips compiling ~170
+#     third-party translation units and links them dynamically — fast configure,
+#     fast linking. Falls back to building from pinned sources if not installed.
+#   * FIFTEEN_STATIC_DEPS=ON (release): always build the deps from source and
+#     link them statically, producing a self-contained, optimized binary.
+option(FIFTEEN_STATIC_DEPS "Build dependencies from source and link them statically (release binaries)" OFF)
 
 # --- raylib -------------------------------------------------------------------
-find_package(raylib 5.5 QUIET)
-if(NOT raylib_FOUND)
-  message(STATUS "raylib: not found on system, building from source")
+if(NOT FIFTEEN_STATIC_DEPS)
+  find_package(raylib QUIET)
+endif()
+if(raylib_FOUND)
+  message(STATUS "raylib: using system package")
+else()
+  message(STATUS "raylib: building from source (static=${FIFTEEN_STATIC_DEPS})")
   FetchContent_Declare(
     raylib
     GIT_REPOSITORY https://github.com/raysan5/raylib.git
@@ -52,21 +60,21 @@ if(NOT raylib_FOUND)
   )
   set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
   set(BUILD_GAMES OFF CACHE BOOL "" FORCE)
-  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+  set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)  # static raylib
   FetchContent_MakeAvailable(raylib)
-else()
-  message(STATUS "raylib: using system package")
 endif()
 
 # --- OpenAL -------------------------------------------------------------------
 # `OpenAL::OpenAL` is exported by openal-soft's CMake config; the source build
 # names the target `OpenAL`. Normalize to ${OPENAL_TARGET} for linking.
-find_package(OpenAL CONFIG QUIET)
+if(NOT FIFTEEN_STATIC_DEPS)
+  find_package(OpenAL CONFIG QUIET)
+endif()
 if(OpenAL_FOUND)
   message(STATUS "OpenAL: using system package")
   set(OPENAL_TARGET OpenAL::OpenAL)
 else()
-  message(STATUS "OpenAL: not found on system, building openal-soft from source")
+  message(STATUS "OpenAL: building openal-soft from source (static=${FIFTEEN_STATIC_DEPS})")
   FetchContent_Declare(
       openal-soft
       GIT_REPOSITORY https://github.com/kcat/openal-soft.git
@@ -77,6 +85,9 @@ else()
   set(ALSOFT_TESTS OFF CACHE BOOL "" FORCE)
   set(ALSOFT_UTILS OFF CACHE BOOL "" FORCE)
   set(ALSOFT_NO_CONFIG_UTIL ON CACHE BOOL "" FORCE)
+  if(FIFTEEN_STATIC_DEPS)
+    set(LIBTYPE STATIC CACHE STRING "" FORCE)  # static openal-soft
+  endif()
 
   # Workarounds for building openal-soft 1.24.2 with upstream Clang/libc++
   # against a very new Apple SDK, applied to this subtree only and restored
@@ -133,6 +144,9 @@ target_link_libraries(AudioPlayerClient PUBLIC Dependencies)
 
 add_module_library(AudioPlayerClientLive src/AudioPlayerClient/AudioPlayerClientLive.cppm)
 target_link_libraries(AudioPlayerClientLive PUBLIC AudioPlayerClient PRIVATE ${OPENAL_TARGET})
+if(FIFTEEN_STATIC_DEPS)
+  target_compile_definitions(AudioPlayerClientLive PRIVATE AL_LIBTYPE_STATIC)  # link openal-soft statically
+endif()
 
 add_module_library(SolverClient src/SolverClient/SolverClient.cppm)
 target_link_libraries(SolverClient PUBLIC Dependencies)

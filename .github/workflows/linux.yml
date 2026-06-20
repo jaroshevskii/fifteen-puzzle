@@ -1,0 +1,61 @@
+name: Linux
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CMake + Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "4.2.3"
+          ninjaVersion: "latest"
+
+      - name: Install LLVM + libc++ + deps
+        run: |
+          wget -q https://apt.llvm.org/llvm.sh
+          chmod +x llvm.sh
+          sudo ./llvm.sh 21
+          # Toolchain, system audio lib, and windowing dev libs.
+          sudo apt-get install -y \
+            clang-21 lld-21 libc++-21-dev libc++abi-21-dev \
+            libopenal-dev \
+            libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev
+          # Prebuilt raylib if packaged; otherwise it is built from source.
+          sudo apt-get install -y libraylib-dev || echo "libraylib-dev unavailable; building raylib from source"
+
+      # Cache the source build of any dependency not satisfied by a system package.
+      - name: Cache built dependencies
+        uses: actions/cache@v4
+        with:
+          path: build/_deps
+          key: Linux-deps-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: Linux-deps-
+
+      - name: Configure / Build / Test
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          # Pick a libc++ module manifest whose std.cppm actually exists.
+          json=""
+          for cand in $(find /usr/lib/llvm-21 /usr/lib /usr/share -name libc++.modules.json 2>/dev/null); do
+            sp="$(python3 -c 'import json,sys; m=[x for x in json.load(open(sys.argv[1])).get("modules",[]) if x.get("logical-name")=="std"]; print(m[0]["source-path"] if m else "")' "$cand")"
+            [ -z "$sp" ] && continue
+            case "$sp" in /*) abs="$sp" ;; *) abs="$(dirname "$cand")/$sp" ;; esac
+            [ -f "$abs" ] && { json="$cand"; break; }
+          done
+          echo "Using modules.json: ${json:-<none found>}"
+          test -n "$json"
+          cmake --preset linux -DCMAKE_CXX_STDLIB_MODULES_JSON="$json"
+          cmake --build --preset linux
+          cmake --build --preset tests-linux   # tests are EXCLUDE_FROM_ALL
+          ctest --preset linux

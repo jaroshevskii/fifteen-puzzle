@@ -1,0 +1,31 @@
+name: macOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # `import std;` is gated behind a CMake-version-specific UUID, so pin CMake.
+      - name: Install CMake + Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "4.2.3"
+          ninjaVersion: "latest"
+
+      # Prebuilt deps (find_package uses them; no third-party source build).
+      - name: Install LLVM + deps
+        run: brew install llvm raylib openal-soft
+
+      - name: Configure / Build / Test
+        run: |
+          cmake --preset macos
+          cmake --build --preset macos
+          cmake --build --preset tests   # tests are EXCLUDE_FROM_ALL
+          ctest --preset macos
