@@ -91,11 +91,14 @@ endif()
 # Helper: declare a C++20-module library from a list of module interface units.
 # `import std;` is enabled per target (not globally) so it does not leak into the
 # fetched third-party dependencies.
+# The C++ standard is set via the CXX_STANDARD property (initialized from the
+# global CMAKE_CXX_STANDARD 26) rather than target_compile_features(cxx_std_26):
+# CMake does not list `cxx_std_26` as a known feature for MSVC, so requiring it
+# breaks the Windows build even though /std:c++latest supports it.
 function(add_module_library name)
   add_library(${name})
   target_sources(${name} PUBLIC FILE_SET CXX_MODULES FILES ${ARGN})
-  target_compile_features(${name} PUBLIC cxx_std_26)
-  set_target_properties(${name} PROPERTIES CXX_MODULE_STD ON)
+  set_target_properties(${name} PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_MODULE_STD ON)
 endfunction()
 
 # --- Core libraries -----------------------------------------------------------
@@ -151,8 +154,7 @@ target_link_libraries(AppFeatureView PUBLIC AppFeature PuzzleFeatureView raylib)
 # --- Executable ---------------------------------------------------------------
 
 add_executable(${PROJECT_NAME} main.cpp)
-target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_26)
-set_target_properties(${PROJECT_NAME} PROPERTIES CXX_MODULE_STD ON)
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_MODULE_STD ON)
 target_link_libraries(${PROJECT_NAME} PRIVATE
   AppFeatureView AppFeature PuzzleFeature ComposableArchitecture
   AudioPlayerClient AudioPlayerClientLive
@@ -171,15 +173,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 enable_testing()
 
 add_executable(PuzzleFeatureTests EXCLUDE_FROM_ALL tests/PuzzleFeatureTests.cpp)
-target_compile_features(PuzzleFeatureTests PRIVATE cxx_std_26)
-set_target_properties(PuzzleFeatureTests PROPERTIES CXX_MODULE_STD ON)
+set_target_properties(PuzzleFeatureTests PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_MODULE_STD ON)
 target_link_libraries(PuzzleFeatureTests PRIVATE PuzzleFeature ComposableArchitecture)
 
 add_test(NAME PuzzleFeatureTests COMMAND PuzzleFeatureTests)
 
 add_executable(SolverClientTests EXCLUDE_FROM_ALL tests/SolverClientTests.cpp)
-target_compile_features(SolverClientTests PRIVATE cxx_std_26)
-set_target_properties(SolverClientTests PROPERTIES CXX_MODULE_STD ON)
+set_target_properties(SolverClientTests PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_MODULE_STD ON)
 target_link_libraries(SolverClientTests PRIVATE SolverClient SolverClientLive)
 
 add_test(NAME SolverClientTests COMMAND SolverClientTests)
