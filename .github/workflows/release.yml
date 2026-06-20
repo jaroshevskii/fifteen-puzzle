@@ -21,9 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: macOS, runner: macos-latest, preset: macos, bin: FifteenPuzzle, asset: FifteenPuzzle-macos-arm64 }
-          - { name: Linux, runner: ubuntu-latest, preset: linux, bin: FifteenPuzzle, asset: FifteenPuzzle-linux-x86_64 }
-          - { name: Windows, runner: windows-latest, preset: windows, bin: FifteenPuzzle.exe, asset: FifteenPuzzle-windows-x86_64.exe }
+          - { name: macOS, runner: macos-latest, preset: macos, bin: FifteenPuzzle, stem: FifteenPuzzle-macos-arm64, archive: FifteenPuzzle-macos-arm64.tar.gz }
+          - { name: Linux, runner: ubuntu-latest, preset: linux, bin: FifteenPuzzle, stem: FifteenPuzzle-linux-x86_64, archive: FifteenPuzzle-linux-x86_64.tar.gz }
+          - { name: Windows, runner: windows-latest, preset: windows, bin: FifteenPuzzle.exe, stem: FifteenPuzzle-windows-x86_64.exe, archive: FifteenPuzzle-windows-x86_64.zip }
 
     steps:
       - uses: actions/checkout@v4
@@ -86,20 +86,34 @@ jobs:
           cmake --build --preset windows
 
       # --- package + publish ----------------------------------------------------
-      - name: Stage binary
+      # Archive the binary so the executable bit survives download/extraction.
+      # A bare binary served over HTTP loses its +x and macOS shows it as a
+      # "Document" that won't run; tar.gz (and zip on Windows) preserve it.
+      - name: Package (macOS/Linux)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           mkdir -p dist
-          cp "build/${{ matrix.bin }}" "dist/${{ matrix.asset }}"
+          cp "build/${{ matrix.bin }}" "${{ matrix.stem }}"
+          chmod +x "${{ matrix.stem }}"
+          tar -czf "dist/${{ matrix.archive }}" "${{ matrix.stem }}"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "build/${{ matrix.bin }}" "${{ matrix.stem }}"
+          Compress-Archive -Path "${{ matrix.stem }}" -DestinationPath "dist/${{ matrix.archive }}" -Force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.asset }}
-          path: dist/${{ matrix.asset }}
+          name: ${{ matrix.archive }}
+          path: dist/${{ matrix.archive }}
 
       - name: Attach to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/${{ matrix.asset }}
+          files: dist/${{ matrix.archive }}

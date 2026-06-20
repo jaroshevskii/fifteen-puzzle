@@ -186,8 +186,20 @@ Pushing a published GitHub Release triggers
 [`release.yml`](.github/workflows/release.yml), which builds an optimized,
 statically-linked binary (`FIFTEEN_STATIC_DEPS=ON`, `Release`) for macOS, Linux,
 and Windows and attaches them to the release. Debug/CI builds instead link the
-dependencies dynamically (faster to link). *(Binaries still depend on the
-toolchain's C++ runtime — libc++ on Clang, the MSVC runtime on Windows.)*
+dependencies dynamically (faster to link).
+
+Assets are packaged as archives (`.tar.gz` for macOS/Linux, `.zip` for Windows)
+so the executable bit survives download — a bare binary served over HTTP loses
+it and macOS would treat it as a non-runnable "Document". To run:
+
+```sh
+tar -xzf FifteenPuzzle-macos-arm64.tar.gz
+xattr -dr com.apple.quarantine FifteenPuzzle-macos-arm64   # macOS: unsigned binary
+./FifteenPuzzle-macos-arm64
+```
+
+*(Binaries still depend on the toolchain's C++ runtime — libc++ on Clang, the
+MSVC runtime on Windows — and are unsigned.)*
 
 ### Working in Xcode
 
