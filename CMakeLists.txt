@@ -95,17 +95,24 @@ else()
     set(LIBTYPE STATIC CACHE STRING "" FORCE)  # static openal-soft
   endif()
 
-  # Workarounds for building openal-soft 1.24.2 with upstream Clang/libc++
-  # against a very new Apple SDK, applied to this subtree only and restored
-  # before our own (module) targets are defined:
+  # Workarounds for building openal-soft 1.24.2 with upstream Clang/libc++,
+  # applied to this subtree only and restored before our own (module) targets:
   #   * -include cstdlib   : bundled fmt 11.1.1 relies on a transitive <cstdlib>
   #                          that newer libc++ no longer provides.
   #   * -Wno-elaborated-enum-base : Apple's CF_ENUM macros trip a diagnostic that
   #                          upstream Clang treats as an error.
+  #   * -D__LITTLE_ENDIAN__ etc. (Apple): upstream Clang doesn't predefine these
+  #                          Apple macros that CoreFoundation headers test with
+  #                          `#if`, so openal's -Werror=undef errors out. Defining
+  #                          them (arm64/x86_64 = little-endian, LP64) avoids the
+  #                          warning entirely — order-independent, unlike -Wno-*.
   # These are Clang/GCC flags; MSVC does not need (or understand) them.
   set(_saved_cxx_flags "${CMAKE_CXX_FLAGS}")
   if(NOT MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include cstdlib -Wno-elaborated-enum-base")
+    if(APPLE)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__LITTLE_ENDIAN__=1 -D__BIG_ENDIAN__=0 -D__LLP64__=0")
+    endif()
   endif()
   FetchContent_MakeAvailable(openal-soft)
   set(CMAKE_CXX_FLAGS "${_saved_cxx_flags}")
