@@ -78,12 +78,19 @@ jobs:
           CC: clang-21
           CXX: clang++-21
         run: |
-          # Locate libc++'s module manifest for this toolchain.
-          json="$(clang++-21 -stdlib=libc++ -print-file-name=libc++.modules.json)"
-          if [ ! -f "$json" ]; then
-            json="$(find /usr/lib/llvm-21 -name libc++.modules.json | head -n1)"
-          fi
-          echo "Using modules.json: $json"
+          # Pick a libc++ module manifest whose std.cppm actually exists. The
+          # Debian-packaged manifest under /usr/lib/x86_64-linux-gnu points at a
+          # std.cppm path that isn't installed there; the llvm-21 toolchain's
+          # manifest resolves correctly. Validate before trusting one.
+          json=""
+          for cand in $(find /usr/lib/llvm-21 /usr/lib /usr/share -name libc++.modules.json 2>/dev/null); do
+            sp="$(python3 -c 'import json,sys; m=[x for x in json.load(open(sys.argv[1])).get("modules",[]) if x.get("logical-name")=="std"]; print(m[0]["source-path"] if m else "")' "$cand")"
+            [ -z "$sp" ] && continue
+            case "$sp" in /*) abs="$sp" ;; *) abs="$(dirname "$cand")/$sp" ;; esac
+            [ -f "$abs" ] && { json="$cand"; break; }
+          done
+          echo "Using modules.json: ${json:-<none found>}"
+          test -n "$json"
           cmake --preset linux -DCMAKE_CXX_STDLIB_MODULES_JSON="$json"
           cmake --build --preset linux
           cmake --build --preset tests-linux   # tests are EXCLUDE_FROM_ALL
