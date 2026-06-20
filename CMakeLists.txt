@@ -110,6 +110,14 @@ else()
   FetchContent_MakeAvailable(openal-soft)
   set(CMAKE_CXX_FLAGS "${_saved_cxx_flags}")
   set(OPENAL_TARGET OpenAL)
+
+  # openal-soft hard-codes -Werror=undef (and friends). Upstream Clang doesn't
+  # predefine the Apple-specific macros that CoreFoundation headers test with
+  # `#if`, so those become errors. Demote openal's warnings-as-errors on its own
+  # target — applied after openal's own options, so this one wins the ordering.
+  if(NOT MSVC AND TARGET OpenAL)
+    target_compile_options(OpenAL PRIVATE -Wno-error)
+  endif()
 endif()
 
 # Helper: declare a C++20-module library from a list of module interface units.
