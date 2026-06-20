@@ -33,6 +33,12 @@ if(CCACHE_PROGRAM)
   message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
 endif()
 
+# Some system package configs (e.g. Debian's OpenALConfig.cmake) and older
+# dependency CMakeLists still declare cmake_minimum_required below 3.5, which
+# CMake 4.x rejects ("Compatibility with CMake < 3.5 has been removed"). Clamp
+# those old minimums so such packages still load.
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 include(FetchContent)
 
 # Dependency strategy:
