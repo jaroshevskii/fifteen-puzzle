@@ -5,7 +5,14 @@ set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "d0edc3af-4c50-42ea-a356-e2862fe7a444")
 
 project(FifteenPuzzle LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 26)
+# The code only uses C++23 features (modules, `import std`, expected, jthread,
+# stop_token). Use C++26 on Clang/GCC, but C++23 on MSVC: CMake 4.2 does not
+# support the C++26 dialect or `import std` at C++26 for MSVC, while C++23 works.
+if(MSVC)
+  set(CMAKE_CXX_STANDARD 23)
+else()
+  set(CMAKE_CXX_STANDARD 26)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # On Clang/GCC the `std` module CMake builds for `import std;` uses the default
 # dialect (gnu++NN), so our module units must enable extensions to load the same
@@ -91,14 +98,13 @@ endif()
 # Helper: declare a C++20-module library from a list of module interface units.
 # `import std;` is enabled per target (not globally) so it does not leak into the
 # fetched third-party dependencies.
-# The C++ standard is set via the CXX_STANDARD property (initialized from the
-# global CMAKE_CXX_STANDARD 26) rather than target_compile_features(cxx_std_26):
-# CMake does not list `cxx_std_26` as a known feature for MSVC, so requiring it
-# breaks the Windows build even though /std:c++latest supports it.
+# Targets inherit the standard from the global CMAKE_CXX_STANDARD (C++26 on
+# Clang/GCC, C++23 on MSVC). We do not call target_compile_features(cxx_std_26):
+# CMake does not list it as a known feature for MSVC, which breaks that build.
 function(add_module_library name)
   add_library(${name})
   target_sources(${name} PUBLIC FILE_SET CXX_MODULES FILES ${ARGN})
-  set_target_properties(${name} PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_MODULE_STD ON)
+  set_target_properties(${name} PROPERTIES CXX_MODULE_STD ON)
 endfunction()
 
 # --- Core libraries -----------------------------------------------------------
@@ -154,7 +160,7 @@ target_link_libraries(AppFeatureView PUBLIC AppFeature PuzzleFeatureView raylib)
 # --- Executable ---------------------------------------------------------------
 
 add_executable(${PROJECT_NAME} main.cpp)
-set_target_properties(${PROJECT_NAME} PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_MODULE_STD ON)
+set_target_properties(${PROJECT_NAME} PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(${PROJECT_NAME} PRIVATE
   AppFeatureView AppFeature PuzzleFeature ComposableArchitecture
   AudioPlayerClient AudioPlayerClientLive
@@ -173,13 +179,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 enable_testing()
 
 add_executable(PuzzleFeatureTests EXCLUDE_FROM_ALL tests/PuzzleFeatureTests.cpp)
-set_target_properties(PuzzleFeatureTests PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_MODULE_STD ON)
+set_target_properties(PuzzleFeatureTests PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(PuzzleFeatureTests PRIVATE PuzzleFeature ComposableArchitecture)
 
 add_test(NAME PuzzleFeatureTests COMMAND PuzzleFeatureTests)
 
 add_executable(SolverClientTests EXCLUDE_FROM_ALL tests/SolverClientTests.cpp)
-set_target_properties(SolverClientTests PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_MODULE_STD ON)
+set_target_properties(SolverClientTests PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(SolverClientTests PRIVATE SolverClient SolverClientLive)
 
 add_test(NAME SolverClientTests COMMAND SolverClientTests)
