@@ -1,43 +1,54 @@
 export module ComposableArchitecture:TestStore;
 
 import std;
-import :Effect;
-import :Reducer;
+import :Store;
+import :Feature;
 
-// A C++ port of TCA's `TestStore`. It drives a reducer the way the real store
-// does, but lets a test assert how state changes after each step. Unlike the
-// live `Store`, async effects run *inline* (synchronously, with a never-cancelled
-// token), so tests are deterministic and thread-free — the analog of TCA's
-// immediate test scheduler. Effect-produced actions are queued and drained with
-// `receive`, mirroring the exhaustive behavior of the Swift library.
+// A C++ port of TCA 2.0's `TestStore`. It runs the feature like the real store
+// but deterministically: `onMount` runs at construction, async tasks run inline
+// (no threads), `modify` applies immediately, and actions sent from tasks are
+// queued for `receive`. Each `send`/`receive` asserts the resulting state.
 export namespace ComposableArchitecture {
 
 template <typename State, typename Action>
-class TestStore {
+class TestStore final : public Store<State, Action> {
  public:
-  template <typename ReducerFactory>
-    requires std::invocable<ReducerFactory> &&
-        std::convertible_to<std::invoke_result_t<ReducerFactory>, ReducerFunction<State, Action>>
-  TestStore(State initialState, ReducerFactory makeReducer)
-      : state_(std::move(initialState)), reducer_(makeReducer()) {}
+  template <typename FeatureFactory>
+    requires std::invocable<FeatureFactory> &&
+        std::same_as<std::invoke_result_t<FeatureFactory>, Feature<State, Action>>
+  TestStore(State initial, FeatureFactory makeFeature)
+      : state_(std::move(initial)), feature_(makeFeature()) {
+    feature_.mount(state_, *this);  // onMount runs once, as in the live store
+  }
 
-  ~TestStore() {
+  ~TestStore() override {
     if (!pending_.empty()) {
       reportFailure("test store deallocated with " + std::to_string(pending_.size()) +
                     " action(s) left unreceived");
     }
   }
 
-  const State& state() const { return state_; }
-  bool failed() const { return failed_; }
+  // --- Store interface (used by the feature under test) ---------------------
+  const State& state() const override { return state_; }
+  State snapshot() override { return state_; }
+  void send(Action action) override { pending_.push_back(std::move(action)); }
+  void modify(std::function<void(State&)> mutation) override { mutation(state_); }
+  void addTask(std::function<void(Store<State, Action>&, std::stop_token)> work, std::string = {}) override {
+    std::stop_source source;
+    work(*this, source.get_token());  // inline, deterministic
+  }
+  void cancel(const std::string&) override {}
 
-  void send(const Action& action, const std::function<void(State&)>& assert = {}) {
+  // --- test driver ----------------------------------------------------------
+  // The assert closure is required (pass `{}` for "no change expected"); this
+  // keeps the two-argument driver distinct from the one-argument Store::send
+  // that features call from tasks.
+  void send(const Action& action, const std::function<void(State&)>& assert) {
     apply(action, assert, "send");
   }
-
   void receive(const std::function<void(State&)>& assert = {}) {
     if (pending_.empty()) {
-      reportFailure("receive called but no actions were produced by effects");
+      reportFailure("receive called but no actions were produced");
       return;
     }
     Action action = std::move(pending_.front());
@@ -45,22 +56,12 @@ class TestStore {
     apply(action, assert, "receive");
   }
 
+  bool failed() const { return failed_; }
+
  private:
   void apply(const Action& action, const std::function<void(State&)>& assert, std::string_view step) {
     State expected = state_;
-    Effect<Action> effect = reducer_(state_, action);
-
-    Send<Action> capture{[this](Action produced) { pending_.push_back(std::move(produced)); }};
-    std::stop_source never;
-    for (const auto& item : effect.items()) {
-      if (item.kind == EffectKind::sync) {
-        item.sync(capture);
-      } else if (item.kind == EffectKind::async) {
-        item.async(capture, never.get_token());  // run inline for determinism
-      }
-      // cancel items are no-ops here: inline async tasks already ran to completion.
-    }
-
+    feature_.update(state_, action, *this);
     if (assert) {
       assert(expected);
     }
@@ -75,7 +76,7 @@ class TestStore {
   }
 
   State state_;
-  ReducerFunction<State, Action> reducer_;
+  Feature<State, Action> feature_;
   std::deque<Action> pending_;
   bool failed_ = false;
 };

@@ -51,7 +51,6 @@ struct State {
   bool operator==(const State&) const = default;
 };
 
-struct AppLaunched {};
 struct AutoSolveButtonTapped {};
 struct BoardSizeSelected {
   int grid = Config::minGrid;
@@ -69,13 +68,9 @@ struct SolverFailed {
 struct TileTapped {
   int index = 0;
 };
-struct TimerStarted {
-  double date = 0.0;
-};
 struct TimerTicked {};
 
 using Action = std::variant<
-    AppLaunched,
     AutoSolveButtonTapped,
     BoardSizeSelected,
     NearWinShortcutActivated,
@@ -85,10 +80,7 @@ using Action = std::variant<
     SolverSucceeded,
     SolverFailed,
     TileTapped,
-    TimerStarted,
     TimerTicked>;
-
-using Effect = ComposableArchitecture::Effect<Action>;
 
 enum class Direction {
   up,
@@ -98,7 +90,9 @@ enum class Direction {
 };
 
 State initialState();
-ComposableArchitecture::ReducerFunction<State, Action> body();
+// The feature body (TCA 2.0 style). The first shuffle + timer start happen in
+// onMount, so there is no AppLaunched action to send.
+ComposableArchitecture::Feature<State, Action> body();
 int displayedSeconds(const State& state);
 std::optional<int> emptyIndex(const State& state);
 std::optional<int> movableTileIndex(const State& state, Direction direction);

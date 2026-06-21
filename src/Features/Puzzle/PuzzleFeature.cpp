@@ -144,58 +144,50 @@ std::optional<int> movableTileIndex(const State& state, Direction direction) {
   return std::nullopt;
 }
 
-ComposableArchitecture::ReducerFunction<State, Action> body() {
-  return ComposableArchitecture::Reduce<State, Action>([](State& state, const Action& action) -> Effect {
+ComposableArchitecture::Feature<State, Action> body() {
+  using FeatureStore = ComposableArchitecture::Store<State, Action>;
+
+  return ComposableArchitecture::Update<State, Action>(
+             [](State& state, const Action& action, FeatureStore& store) {
     Dependencies::Dependency<Dependencies::DateGeneratorKey> date;
     Dependencies::Dependency<Dependencies::RandomNumberGeneratorKey> rng;
 
-    const auto startTimer = [] {
-      return Effect::run([](const ComposableArchitecture::Send<Action>& send) {
-        Dependencies::Dependency<Dependencies::DateGeneratorKey> date;
-        send(TimerStarted{date->now()});
-      });
-    };
-
-    bool interruptSolve = false;
+    // Interrupting an in-progress auto-solve cancels its background task.
     const auto stopSolving = [&] {
       if (state.isSolving) {
         state.isSolving = false;
         state.pendingMoves.clear();
-        interruptSolve = true;
+        store.cancel(std::string(kSolverCancelId));
       }
     };
-
-    Effect effect = Effect::none();
 
     std::visit(
         [&](auto&& value) {
           using Value = std::decay_t<decltype(value)>;
 
-          if constexpr (std::is_same_v<Value, AppLaunched>) {
-            if (!state.startDate.has_value()) {
-              startNewGame(state, state.grid, *rng);
-              effect = startTimer();
-            }
-          } else if constexpr (std::is_same_v<Value, AutoSolveButtonTapped>) {
+          if constexpr (std::is_same_v<Value, AutoSolveButtonTapped>) {
             if (state.isSolving) {
               stopSolving();
             } else if (state.startDate.has_value() && !state.isGameOver) {
               state.isSolving = true;
-              effect = Effect::task([history = state.moveHistory, grid = state.grid](
-                                        const ComposableArchitecture::Send<Action>& send, std::stop_token stop) {
-                         Dependencies::Dependency<SolverClient::Key> solver;
-                         auto plan = solver->plan(history, grid, std::move(stop));
-                         if (plan.has_value()) {
-                           send(SolverSucceeded{std::move(*plan)});
-                         } else {
-                           send(SolverFailed{plan.error()});
-                         }
-                       }).cancellable(std::string(kSolverCancelId));
+              // Run the (history-reversing) planner on a background task; it
+              // reports the solution back as an action. Cancellable by id.
+              store.addTask(
+                  [history = state.moveHistory, grid = state.grid](FeatureStore& store, std::stop_token stop) {
+                    Dependencies::Dependency<SolverClient::Key> solver;
+                    auto plan = solver->plan(history, grid, std::move(stop));
+                    if (plan.has_value()) {
+                      store.send(SolverSucceeded{std::move(*plan)});
+                    } else {
+                      store.send(SolverFailed{plan.error()});
+                    }
+                  },
+                  std::string(kSolverCancelId));
             }
           } else if constexpr (std::is_same_v<Value, BoardSizeSelected>) {
             stopSolving();
             startNewGame(state, value.grid, *rng);
-            effect = startTimer();
+            state.startDate = date->now();
           } else if constexpr (std::is_same_v<Value, SolverSucceeded>) {
             if (state.isSolving) {
               state.pendingMoves = std::move(value.moves);
@@ -224,7 +216,7 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
           } else if constexpr (std::is_same_v<Value, RestartButtonTapped>) {
             stopSolving();
             startNewGame(state, state.grid, *rng);
-            effect = startTimer();
+            state.startDate = date->now();
           } else if constexpr (std::is_same_v<Value, ShuffleButtonTapped>) {
             stopSolving();
             scramble(state.grid, *rng, state.tiles, state.moveHistory, state.grid * state.grid * 10);
@@ -236,9 +228,6 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
             } else {
               applySlide(state, value.index);
             }
-          } else if constexpr (std::is_same_v<Value, TimerStarted>) {
-            state.startDate = value.date;
-            state.secondsElapsed = 0;
           } else if constexpr (std::is_same_v<Value, TimerTicked>) {
             if (state.startDate.has_value() && !state.isGameOver) {
               const double now = date->now();
@@ -246,7 +235,7 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
               if (seconds > state.secondsElapsed) {
                 state.secondsElapsed = seconds;
                 if (state.isSoundEnabled) {
-                  effect = Effect::run([](const ComposableArchitecture::Send<Action>&) {
+                  store.addTask([](FeatureStore&, std::stop_token) {
                     Dependencies::Dependency<AudioPlayerClient::Key> audioPlayer;
                     audioPlayer->play(AudioPlayerClient::Sound::tick);
                   });
@@ -268,10 +257,6 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
         },
         action);
 
-    if (interruptSolve) {
-      effect = Effect::merge({Effect::cancel(std::string(kSolverCancelId)), std::move(effect)});
-    }
-
     const bool solved = isSolved(state.tiles, state.grid);
     if (solved && !state.isGameOver) {
       if (state.startDate.has_value()) {
@@ -280,9 +265,16 @@ ComposableArchitecture::ReducerFunction<State, Action> body() {
       state.startDate = std::nullopt;
     }
     state.isGameOver = solved;
-
-    return effect;
-  });
+  })
+      .onMount([](State& state, FeatureStore&) {
+        // First run: shuffle and start the timer (replaces the old AppLaunched action).
+        if (!state.startDate.has_value()) {
+          Dependencies::Dependency<Dependencies::DateGeneratorKey> date;
+          Dependencies::Dependency<Dependencies::RandomNumberGeneratorKey> rng;
+          startNewGame(state, state.grid, *rng);
+          state.startDate = date->now();
+        }
+      });
 }
 
 }  // namespace PuzzleFeature

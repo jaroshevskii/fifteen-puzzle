@@ -66,7 +66,7 @@ void testTileTappedIgnoresNonAdjacentTile() {
         // Empty square is at index 14; index 0 is not adjacent to it.
         TestStore<PuzzleFeature::State, PuzzleFeature::Action> store(almostSolvedState(), PuzzleFeature::body);
 
-        store.send(PuzzleFeature::TileTapped{0});
+        store.send(PuzzleFeature::TileTapped{0}, {});  // {} = expect no state change
 
         expect(!store.failed(), "TileTapped ignores non-adjacent tile");
         return 0;
@@ -96,9 +96,9 @@ void testTimerTickedAdvancesElapsedSeconds() {
       });
 }
 
-// AppLaunched shuffles the board (off the seeded generator) and starts the timer
-// by feeding a TimerStarted action back through the effect.
-void testAppLaunchedShufflesAndStartsTimer() {
+// onMount shuffles the board (off the seeded generator) and starts the timer
+// when the store is created — no AppLaunched action needed (TCA 2.0 lifecycle).
+void testOnMountShufflesAndStartsTimer() {
   withDependencies(
       [](DependencyValues& values) {
         values.context = DependencyContext::test;
@@ -106,22 +106,14 @@ void testAppLaunchedShufflesAndStartsTimer() {
         values.set<RandomNumberGeneratorKey>(RandomNumberGenerator::seeded(42));
       },
       [] {
-        TestStore<PuzzleFeature::State, PuzzleFeature::Action> store(PuzzleFeature::initialState(), PuzzleFeature::body);
         const auto solvedTiles = PuzzleFeature::initialState().tiles;
 
-        store.send(PuzzleFeature::AppLaunched{}, [&store](PuzzleFeature::State& state) {
-          state.tiles = store.state().tiles;              // shuffled by the seeded generator
-          state.moveHistory = store.state().moveHistory;  // recorded scramble moves
-        });
-        expect(store.state().tiles != solvedTiles, "AppLaunched shuffles the board");
+        // Constructing the store runs onMount, which shuffles and starts the timer.
+        TestStore<PuzzleFeature::State, PuzzleFeature::Action> store(PuzzleFeature::initialState(), PuzzleFeature::body);
 
-        // The start-timer effect feeds TimerStarted{100} back into the store.
-        store.receive([](PuzzleFeature::State& state) {
-          state.startDate = 100.0;
-          state.secondsElapsed = 0;
-        });
-
-        expect(!store.failed(), "AppLaunched starts the timer via an effect");
+        expect(store.state().tiles != solvedTiles, "onMount shuffles the board");
+        expect(store.state().startDate == 100.0, "onMount starts the timer at the controlled clock");
+        expect(!store.failed(), "onMount produced no unexpected effects");
         return 0;
       });
 }
@@ -210,7 +202,7 @@ int main() {
   testTileTappedSwapsAdjacentTile();
   testTileTappedIgnoresNonAdjacentTile();
   testTimerTickedAdvancesElapsedSeconds();
-  testAppLaunchedShufflesAndStartsTimer();
+  testOnMountShufflesAndStartsTimer();
   testAutoSolveAnimatesToSolved();
   testInteractionCancelsAutoSolve();
 

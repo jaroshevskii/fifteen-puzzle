@@ -10,7 +10,7 @@ import AppFeature;
 import AppFeatureView;
 import PuzzleFeature;
 
-using ComposableArchitecture::Store;
+using ComposableArchitecture::RootStore;
 using Dependencies::DependencyValues;
 using Dependencies::prepareDependencies;
 
@@ -30,9 +30,9 @@ int main() {
   SetConfigFlags(FLAG_VSYNC_HINT);
   InitWindow(Config::windowWidth(Config::minGrid), Config::windowHeight(Config::minGrid), "N Puzzle");
 
-  Store<AppFeature::State, AppFeature::Action> store(AppFeature::initialState(), AppFeature::body);
-
-  store.send(AppFeature::Puzzle{PuzzleFeature::AppLaunched{}});
+  // Constructing the store runs the feature's onMount (first shuffle + timer),
+  // so there is no AppLaunched action to send.
+  RootStore<AppFeature::State, AppFeature::Action> store(AppFeature::initialState(), AppFeature::body);
 
   int displayedGrid = Config::minGrid;
 

@@ -20,10 +20,8 @@ struct Puzzle {
 
 using Action = std::variant<Puzzle>;
 
-using Effect = ComposableArchitecture::Effect<Action>;
-
 State initialState();
-ComposableArchitecture::ReducerFunction<State, Action> body();
+ComposableArchitecture::Feature<State, Action> body();
 
 }  // namespace AppFeature
 
@@ -35,9 +33,9 @@ State initialState() {
   return State{.puzzle = PuzzleFeature::initialState()};
 }
 
-// The root reducer is a pure composition: it scopes the puzzle feature into the
-// app domain.
-ComposableArchitecture::ReducerFunction<State, Action> body() {
+// The root feature is a pure composition: it scopes the puzzle feature into the
+// app domain. The puzzle's own onMount/onDismount run via the Scope.
+ComposableArchitecture::Feature<State, Action> body() {
   return ComposableArchitecture::Scope<State, Action, PuzzleFeature::State, PuzzleFeature::Action>(
       &State::puzzle,
       ComposableArchitecture::casePath<Action, Puzzle, PuzzleFeature::Action>(&Puzzle::action),

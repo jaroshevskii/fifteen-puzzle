@@ -26,26 +26,36 @@ This project implements:
 
 ## Architecture
 
-The app is built on a C++ port of [the Composable Architecture (TCA) 2.0][tca] and
-the [Dependencies][deps] library, following the modular, feature-per-library
-structure of [isowords][isowords]. The TCA concepts and naming are carried over
+The app is built on a C++ port of [the Composable Architecture (TCA) **2.0**][tca]
+and the [Dependencies][deps] library, following the modular, feature-per-library
+structure of [isowords][isowords]. The 2.0 concepts and naming are carried over
 faithfully to C++:
 
-| Concept | Type |
+| TCA 2.0 concept | C++ port |
 | --- | --- |
-| Unidirectional state container | `ComposableArchitecture::Store<State, Action>` |
-| Side effects as values | `Effect<Action>` (`none` / `send` / `run` / `merge`) |
-| Reducer building blocks | `Reduce`, `Scope`, `combine` |
-| Follow-up action callback | `Send<Action>` |
+| Feature definition | `ComposableArchitecture::Feature<State, Action>` (a `body()`) |
+| Synchronous state mutation | `Update { state, action, store in … }` (no effect returns) |
+| Implicit feature store | `Store<State, Action>` — `addTask`, `send`, `modify`, `snapshot` |
+| Async work on a background task | `store.addTask([](store, stop){ … }, cancelID)` |
+| Lifecycle hooks | `.onMount(...)`, `.onDismount(...)` |
+| Composition | `Scope(&State::child, casePath, Child::body())` |
 | Controlled dependencies | `Dependency<Key>`, `DependencyValues`, `withDependencies`, `prepareDependencies` |
 | Exhaustive feature testing | `TestStore<State, Action>` |
 
-State is mutated only inside reducers, which stay pure by returning effects
-instead of performing work inline. Time (`\.date`) and randomness
-(`\.withRandomNumberGenerator`) flow through controlled dependencies, so the
-puzzle logic is fully deterministic under test. Audio is an injected
-`AudioPlayerClient` (interface + live OpenAL backend), wired in at launch via
-`prepareDependencies`.
+State is mutated only on the store's thread: `Update` blocks mutate synchronously,
+and async work enqueued with `store.addTask` reports back via `store.send` /
+`store.modify` (serialized on the main thread, so feature code has no locks or
+data races). There are no `Effect` return values — the 2.0 redesign. The first
+shuffle and timer start happen in **`onMount`**, not an `AppLaunched` action.
+Time (`\.date`) and randomness (`\.withRandomNumberGenerator`) flow through
+controlled dependencies, so the puzzle logic is fully deterministic under test.
+Audio is an injected `AudioPlayerClient` (interface + live OpenAL backend), wired
+in at launch via `prepareDependencies`.
+
+*Not ported (2.0 features that don't fit a small raylib game): SwiftUI bindings,
+preferences, triggers, delegate closures, `spawn`, `@FeatureLocal`, events, and
+full `@MainActor` actor isolation (we use a single-threaded loop with a
+main-thread-guarded store instead).*
 
 The code targets **C++26** and is organized as **C++20 named modules** (one
 module per concept, with partitions for the core libraries). The standard
@@ -61,15 +71,15 @@ that move history, so a solution is just the **inverse of the history**
 solves as instantly as a 4×4, with no search. It showcases what the
 effect/dependency architecture makes tractable:
 
-- The reducer returns an **async effect** (`Effect::task`) that the `Store` runs
-  on a `std::jthread`. The planner streams its result back as an action through a
-  thread-safe `Send`; state is still mutated only on the main thread, so there
-  are no locks or data races in feature code.
-- It is **cancellable**: `Effect::cancel` requests the worker's `std::stop_token`,
+- An `Update` calls **`store.addTask`**, which the runtime runs on a
+  `std::jthread`. The planner reports its result back via `store.send`; state is
+  still mutated only on the main thread, so there are no locks or data races in
+  feature code.
+- It is **cancellable**: `store.cancel(id)` requests the task's `std::stop_token`,
   and any interaction (tap, shuffle, restart, resize, or pressing H again)
   cancels an in-flight solve instantly.
 - It stays **fully testable**: tests inject a stub `SolverClient` and a pinned
-  clock, and `TestStore` runs the async effect inline — deterministic, no threads
+  clock, and `TestStore` runs the task inline — deterministic, no threads
   (see `tests/`). `SolverClientTests` checks the planner across sizes 4×4–13×13.
 
 `std::expected` carries the result/cancellation, and `std::stop_token` drives

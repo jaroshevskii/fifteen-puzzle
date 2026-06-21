@@ -150,9 +150,10 @@ add_module_library(Dependencies
 
 add_module_library(ComposableArchitecture
   src/ComposableArchitecture/ComposableArchitecture-CasePath.cppm
-  src/ComposableArchitecture/ComposableArchitecture-Effect.cppm
-  src/ComposableArchitecture/ComposableArchitecture-Reducer.cppm
   src/ComposableArchitecture/ComposableArchitecture-Store.cppm
+  src/ComposableArchitecture/ComposableArchitecture-Feature.cppm
+  src/ComposableArchitecture/ComposableArchitecture-Runtime.cppm
+  src/ComposableArchitecture/ComposableArchitecture-Scope.cppm
   src/ComposableArchitecture/ComposableArchitecture-TestStore.cppm
   src/ComposableArchitecture/ComposableArchitecture.cppm
 )
