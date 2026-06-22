@@ -29,15 +29,16 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       # No fast prebuilt raylib/openal package exists for Windows runners, so the
-      # deps are built from source and cached across runs (the same "don't refetch"
-      # win as system packages). MSVC builds at C++23: CMake 4.2 supports neither
-      # the C++26 dialect nor `import std` at C++26 for MSVC.
-      - name: Cache built dependencies
-        uses: actions/cache@v4
+      # deps are built from source. ccache (content-hashed) caches those object
+      # files across runs — robust where a path/mtime cache of build/_deps was
+      # not (a fresh configure re-ran every compile). CMake picks ccache up as the
+      # compiler launcher automatically. (MSVC builds at C++23: CMake 4.2 supports
+      # neither the C++26 dialect nor `import std` at C++26 for MSVC.)
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
-          path: build/_deps
-          key: Windows-deps-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: Windows-deps-
+          key: windows
+          variant: ccache
 
       - name: Configure / Build / Test
         shell: cmd

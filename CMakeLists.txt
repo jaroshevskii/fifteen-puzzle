@@ -19,6 +19,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # std.pcm. MSVC's modules require conformance mode instead, so keep them off.
 if(MSVC)
   set(CMAKE_CXX_EXTENSIONS OFF)
+  # C4161 (#pragma pack pop imbalance) is emitted from MSVC's own ucrt/stdarg
+  # headers while building the `std` module on recent toolchains — benign and
+  # not from our code. Suppress it project-wide so the build is warning-clean.
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4161")
 else()
   set(CMAKE_CXX_EXTENSIONS ON)
 endif()
@@ -91,6 +95,7 @@ else()
   set(ALSOFT_TESTS OFF CACHE BOOL "" FORCE)
   set(ALSOFT_UTILS OFF CACHE BOOL "" FORCE)
   set(ALSOFT_NO_CONFIG_UTIL ON CACHE BOOL "" FORCE)
+  set(ALSOFT_EAX OFF CACHE BOOL "" FORCE)  # legacy EAX extension we don't use — trims the build
   if(FIFTEEN_STATIC_DEPS)
     set(LIBTYPE STATIC CACHE STRING "" FORCE)  # static openal-soft
   endif()

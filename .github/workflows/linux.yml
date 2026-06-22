@@ -39,13 +39,13 @@ jobs:
           # Prebuilt raylib if packaged; otherwise it is built from source.
           sudo apt-get install -y libraylib-dev || echo "libraylib-dev unavailable; building raylib from source"
 
-      # Cache the source build of any dependency not satisfied by a system package.
-      - name: Cache built dependencies
-        uses: actions/cache@v4
+      # ccache (content-hashed) caches object files of any dependency built from
+      # source across runs. CMake picks it up as the compiler launcher.
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
-          path: build/_deps
-          key: Linux-deps-${{ hashFiles('CMakeLists.txt') }}
-          restore-keys: Linux-deps-
+          key: linux
+          variant: ccache
 
       - name: Configure / Build / Test
         env:
