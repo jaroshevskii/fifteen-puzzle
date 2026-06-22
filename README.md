@@ -160,22 +160,26 @@ cmake --build --preset linux
 
 ### Windows
 
-MSVC (Visual Studio 2022) ships its own `std` module. From a *Developer
-Command Prompt for VS 2022* (so `cl` and Ninja are on `PATH`):
+MSVC (Visual Studio 2022+) ships its own `std` module. From a *Developer Command
+Prompt* (so `cl` and Ninja are on `PATH`). raylib + openal-soft come from
+**vcpkg** (no system package exists); pass its toolchain so `find_package` finds
+them — otherwise CMake falls back to building them from source:
 
 ```bat
-cmake --preset windows
+vcpkg install raylib openal-soft --triplet x64-windows
+cmake --preset windows -DCMAKE_TOOLCHAIN_FILE=%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake
 cmake --build --preset windows
 ```
 
 ### Dependencies (fast vs. self-contained)
 
-- **Default (dev/CI):** raylib + openal-soft are resolved **system-first** via
-  `find_package` (the packages installed above). This skips compiling ~170
-  third-party translation units and links them dynamically — a from-scratch
-  build drops from **~65 s to ~2.5 s**. If a package is missing, CMake falls back
-  to building it from pinned sources (FetchContent), so a fresh checkout still
-  works anywhere. A `ccache` install is picked up automatically.
+- **Default (dev/CI):** raylib + openal-soft are resolved **prebuilt** via
+  `find_package` — from brew (macOS), apt (Linux), or vcpkg (Windows). This skips
+  compiling ~170 third-party translation units and links them dynamically — a
+  from-scratch build drops from **~65 s to ~2.5 s**. If a package is missing,
+  CMake falls back to building it from pinned sources (FetchContent), so a fresh
+  checkout still works anywhere. A `ccache` install is picked up automatically to
+  cache those source builds.
 - **Release (`-DFIFTEEN_STATIC_DEPS=ON`):** the deps are built from source and
   linked **statically** into a self-contained, optimized binary. This is what
   the release workflow uses.

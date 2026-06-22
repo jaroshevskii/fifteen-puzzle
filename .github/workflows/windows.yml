@@ -28,22 +28,32 @@ jobs:
       - name: Set up MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
 
-      # No fast prebuilt raylib/openal package exists for Windows runners, so the
-      # deps are built from source. ccache (content-hashed) caches those object
-      # files across runs — robust where a path/mtime cache of build/_deps was
-      # not (a fresh configure re-ran every compile). CMake picks ccache up as the
-      # compiler launcher automatically. (MSVC builds at C++23: CMake 4.2 supports
-      # neither the C++26 dialect nor `import std` at C++26 for MSVC.)
-      - name: ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+      # Prebuilt deps for Windows via vcpkg (no system package exists). vcpkg
+      # builds raylib + openal-soft once and stores binary packages; the binary
+      # cache is persisted across runs, so repeat runs restore prebuilt binaries
+      # instead of recompiling — the parity with brew/apt on macOS/Linux. (ccache
+      # does not work here: MSVC compiles are 100% uncacheable in this setup.)
+      # MSVC builds at C++23: CMake 4.2 supports neither the C++26 dialect nor
+      # `import std` at C++26 for MSVC.
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v4
         with:
-          key: windows
-          variant: ccache
+          path: ${{ github.workspace }}\vcpkg-bincache
+          key: vcpkg-x64-windows-${{ github.run_id }}
+          restore-keys: vcpkg-x64-windows-
+
+      - name: Install raylib + openal-soft (vcpkg)
+        shell: pwsh
+        env:
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg-bincache
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install raylib openal-soft --triplet x64-windows
 
       - name: Configure / Build / Test
         shell: cmd
         run: |
-          cmake --preset windows
+          cmake --preset windows -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
           cmake --build --preset windows
           cmake --build --preset tests-windows
           ctest --preset windows
