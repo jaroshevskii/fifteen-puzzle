@@ -26,7 +26,7 @@ jobs:
           - { name: Windows, runner: windows-latest, preset: windows, bin: FifteenPuzzle.exe, stem: FifteenPuzzle-windows-x86_64.exe, archive: FifteenPuzzle-windows-x86_64.zip }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install CMake + Ninja
         uses: lukka/get-cmake@latest
@@ -107,13 +107,13 @@ jobs:
           Compress-Archive -Path "${{ matrix.stem }}" -DestinationPath "dist/${{ matrix.archive }}" -Force
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.archive }}
           path: dist/${{ matrix.archive }}
 
       - name: Attach to release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/${{ matrix.archive }}
