@@ -107,7 +107,7 @@ jobs:
           Compress-Archive -Path "${{ matrix.stem }}" -DestinationPath "dist/${{ matrix.archive }}" -Force
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.archive }}
           path: dist/${{ matrix.archive }}
