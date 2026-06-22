@@ -3,6 +3,8 @@ export module PuzzleFeature;
 import std;
 import ComposableArchitecture;
 import SolverClient;
+import Sharing;
+import AppSettings;
 
 // Interface unit: declarations only (implementation in PuzzleFeature.cpp).
 export namespace PuzzleFeature {
@@ -45,7 +47,6 @@ struct State {
   int grid = Config::minGrid;
   bool isGameOver = false;
   bool isSolving = false;
-  bool isSoundEnabled = false;
   std::optional<int> lastDuration;
   double nextMoveAt = 0.0;
   double solveInterval = 0.05;
@@ -54,6 +55,10 @@ struct State {
   int secondsElapsed = 0;
   std::optional<double> startDate;
   std::vector<std::string> tiles;
+  // Persisted settings (sound, last board size, player name), shared across the
+  // app via the Sharing library. Sound is read live from here; toggling it or
+  // picking a board size mutates and persists it.
+  Sharing::Shared<AppSettings::Settings> settings;
 
   bool operator==(const State &) const = default;
 };
@@ -90,7 +95,10 @@ enum class Direction : std::uint8_t {
   right,
 };
 
-State initialState();
+// Builds the initial state, seeding the board size from the persisted settings.
+// `settings` defaults to an unbacked value (defaults, no persistence) so tests
+// can construct the feature without wiring file storage.
+State initialState(Sharing::Shared<AppSettings::Settings> settings = {});
 // The feature body (TCA 2.0 style). The first shuffle + timer start happen in
 // onMount, so there is no AppLaunched action to send.
 ComposableArchitecture::Feature<State, Action> body();

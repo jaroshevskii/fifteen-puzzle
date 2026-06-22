@@ -30,10 +30,11 @@ jobs:
           wget -q https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 21
-          # Toolchain, system audio lib, and windowing dev libs.
+          # Toolchain, system audio lib, persistence/network/JSON libs, and
+          # windowing dev libs.
           sudo apt-get install -y \
             clang-21 lld-21 libc++-21-dev libc++abi-21-dev \
-            libopenal-dev \
+            libopenal-dev libsqlite3-dev libcurl4-openssl-dev nlohmann-json3-dev \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev
           # Prebuilt raylib if packaged; otherwise it is built from source.

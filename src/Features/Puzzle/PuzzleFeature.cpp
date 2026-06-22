@@ -4,6 +4,8 @@ import std;
 import ComposableArchitecture;
 import AudioPlayerClient;
 import SolverClient;
+import Sharing;
+import AppSettings;
 
 namespace PuzzleFeature {
 
@@ -109,7 +111,13 @@ bool applySlide(State &state, int pos) {
 
 } // namespace
 
-State initialState() { return State{.tiles = solvedTiles(Config::minGrid)}; }
+State initialState(Sharing::Shared<AppSettings::Settings> settings) {
+  const int grid = std::clamp(settings.get().lastBoardSize, Config::minGrid,
+                              Config::maxGrid);
+  return State{.grid = grid,
+               .tiles = solvedTiles(grid),
+               .settings = std::move(settings)};
+}
 
 int displayedSeconds(const State &state) {
   if (state.isGameOver && state.lastDuration.has_value()) {
@@ -174,6 +182,17 @@ ComposableArchitecture::Feature<State, Action> body() {
              }
            };
 
+           // Persist the (already-mutated) settings off the main thread, the
+           // Sharing analog of a save effect. Captures the strategy + a copy of
+           // the new value, so the background write never touches state.
+           const auto persistSettings = [&] {
+             store.addTask([strategy = state.settings.strategy(),
+                            value = state.settings.get()](FeatureStore &,
+                                                          std::stop_token) {
+               strategy.save(value);
+             });
+           };
+
            std::visit(
                [&](auto &&value) {
                  using Value = std::decay_t<decltype(value)>;
@@ -206,6 +225,12 @@ ComposableArchitecture::Feature<State, Action> body() {
                    stopSolving();
                    startNewGame(state, value.grid, *rng);
                    state.startDate = date->now();
+                   // Remember the chosen board size for next launch.
+                   state.settings.withMutation(
+                       [grid = value.grid](AppSettings::Settings &s) {
+                         s.lastBoardSize = grid;
+                       });
+                   persistSettings();
                  } else if constexpr (std::is_same_v<Value, SolverSucceeded>) {
                    if (state.isSolving) {
                      state.pendingMoves = std::move(value.moves);
@@ -248,7 +273,10 @@ ComposableArchitecture::Feature<State, Action> body() {
                             state.grid * state.grid * 10);
                  } else if constexpr (std::is_same_v<Value,
                                                      SoundToggleButtonTapped>) {
-                   state.isSoundEnabled = !state.isSoundEnabled;
+                   state.settings.withMutation([](AppSettings::Settings &s) {
+                     s.isSoundEnabled = !s.isSoundEnabled;
+                   });
+                   persistSettings();
                  } else if constexpr (std::is_same_v<Value, TileTapped>) {
                    if (state.isSolving) {
                      stopSolving();
@@ -262,7 +290,7 @@ ComposableArchitecture::Feature<State, Action> body() {
                          static_cast<int>(now - *state.startDate);
                      if (seconds > state.secondsElapsed) {
                        state.secondsElapsed = seconds;
-                       if (state.isSoundEnabled) {
+                       if (state.settings.get().isSoundEnabled) {
                          store.addTask([](FeatureStore &, std::stop_token) {
                            Dependencies::Dependency<AudioPlayerClient::Key>
                                audioPlayer;

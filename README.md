@@ -90,13 +90,61 @@ cooperative cancellation — all under `-std=c++26`.
 [deps]: https://github.com/pointfreeco/swift-dependencies
 [isowords]: https://github.com/pointfreeco/isowords
 
+### Persistence, networking & sharing
+
+Mirroring the "real app" surface of isowords, three dependencies extend the game
+beyond the board:
+
+- **Sharing** (`Shared<T>`) — a port of Point-Free's [Sharing][sharing] library.
+  A `Shared<T>` is a plain value (so it lives in feature `State` and stays
+  `operator==`-comparable) backed by a pluggable `PersistenceStrategy`:
+  `inMemory` for tests, or a JSON `fileStorage` that atomically writes a file.
+  App settings (sound, last board size, player name) persist across launches;
+  saves run off the main thread via `store.addTask`.
+- **DatabaseClient** (SQLite) — a port of isowords' `LocalDatabaseClient`. A thin
+  `Sqlite` wrapper + a `DatabaseClient` dependency record every completed game and
+  answer best-scores / stats queries (`PRAGMA user_version` migrations).
+- **ApiClient** (network) — a port of isowords' `ApiClient`, over **libcurl** +
+  **nlohmann/json**. It submits scores and fetches a remote leaderboard from a
+  configurable endpoint, honoring `std::stop_token` for cancellation and
+  returning `std::expected` so it degrades gracefully when offline.
+
+`LeaderboardFeature` ties them together: on appear it loads the local (database)
+and remote (API) leaderboards concurrently and merges them; if the network is
+unreachable it shows the local scores with an "offline" hint. Winning a game is
+detected in `AppFeature` (keeping `PuzzleFeature` unaware of the leaderboard) and
+routed as a `ScoreSubmitted`, which persists locally and pushes to the server
+best-effort.
+
+Heavy C++ third-party headers (nlohmann/json) are confined to module
+*implementation units* (`.cpp`), never a reachable interface, so they don't clash
+with `import std;` — the same global-module-fragment discipline used for the C
+audio/SQLite/curl headers.
+
+**Configuring the server.** No backend is bundled. Point the client at a real
+deployment via the `FIFTEEN_API_BASE_URL` environment variable (REST contract:
+`GET {base}/leaderboard?size=N`, `POST {base}/scores`). With it unset or
+unreachable, the leaderboard simply shows local scores.
+
+A per-user data directory (`~/Library/Application Support/FifteenPuzzle` on
+macOS, `$XDG_DATA_HOME` on Linux, `%APPDATA%` on Windows) holds `settings.json`
+and `games.sqlite3`.
+
+[sharing]: https://github.com/pointfreeco/swift-sharing
+
 ### Modules (`src/`)
 
 - `ComposableArchitecture` — core module (`:CasePath`, `:Effect`, `:Reducer`, `:Store`, `:TestStore` partitions)
 - `Dependencies` — dependency container module (`:Core`, `:DateGenerator`, `:RandomNumberGenerator` partitions)
+- `SharedModels` — plain value types shared by the network and database clients (`LeaderboardEntry`, `ScoreSubmission`, `Stats`)
+- `Sharing` / `AppSettings` / `AppSettingsLive` — persisted shared state: a `Shared<T>` value with `inMemory` / JSON `fileStorage` strategies, used for app settings (sound, last board size, player name)
+- `Sqlite` / `DatabaseClient` / `DatabaseClientLive` — SQLite wrapper and the local leaderboard/stats database dependency
+- `ApiClient` / `ApiClientLive` — remote leaderboard dependency interface and its live libcurl + JSON implementation
 - `AudioPlayerClient` / `AudioPlayerClientLive` — audio dependency interface module and its live OpenAL implementation
+- `SolverClient` / `SolverClientLive` — auto-solve planner dependency and its live (history-reversing) implementation
 - `PuzzleFeature` / `PuzzleFeatureView` — puzzle reducer module and its raylib view module
-- `AppFeature` / `AppFeatureView` — composition-root reducer module scoping the puzzle, and its view
+- `LeaderboardFeature` / `LeaderboardFeatureView` — leaderboard reducer (merges local + remote) and its raylib overlay view
+- `AppFeature` / `AppFeatureView` — composition-root reducer module scoping the puzzle + leaderboard, and its view
 
 ## Controls
 
@@ -107,6 +155,7 @@ cooperative cancellation — all under `-std=c++26`.
 - Toggle tick sound — M
 - Auto-solve (toggle) — H
 - Near-win shortcut — double-press W
+- Leaderboard overlay (toggle) — L
 - Restart after victory — Mouse click or R
 
 The board is resizable from 4×4 up to 13×13. The window grows with the board up
@@ -166,23 +215,27 @@ Prompt* (so `cl` and Ninja are on `PATH`). raylib + openal-soft come from
 them — otherwise CMake falls back to building them from source:
 
 ```bat
-vcpkg install raylib openal-soft --triplet x64-windows
+vcpkg install raylib openal-soft sqlite3 curl nlohmann-json --triplet x64-windows
 cmake --preset windows -DCMAKE_TOOLCHAIN_FILE=%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake
 cmake --build --preset windows
 ```
 
 ### Dependencies (fast vs. self-contained)
 
-- **Default (dev/CI):** raylib + openal-soft are resolved **prebuilt** via
-  `find_package` — from brew (macOS), apt (Linux), or vcpkg (Windows). This skips
-  compiling ~170 third-party translation units and links them dynamically — a
-  from-scratch build drops from **~65 s to ~2.5 s**. If a package is missing,
+- **Default (dev/CI):** raylib, openal-soft, SQLite3, libcurl, and nlohmann/json
+  are resolved **prebuilt** via `find_package` — from brew (macOS), apt (Linux),
+  or vcpkg (Windows). On macOS/Linux, SQLite3 and libcurl ship with the SDK. This
+  skips compiling ~170 third-party translation units and links them dynamically —
+  a from-scratch build drops from **~65 s to ~2.5 s**. If a package is missing,
   CMake falls back to building it from pinned sources (FetchContent), so a fresh
   checkout still works anywhere. A `ccache` install is picked up automatically to
   cache those source builds.
-- **Release (`-DFIFTEEN_STATIC_DEPS=ON`):** the deps are built from source and
-  linked **statically** into a self-contained, optimized binary. This is what
-  the release workflow uses.
+- **Release (`-DFIFTEEN_STATIC_DEPS=ON`):** raylib + openal-soft are built from
+  source and linked **statically**; SQLite is vendored from the amalgamation and
+  nlohmann/json is header-only. **libcurl is the exception** — it is always linked
+  dynamically (a from-source static curl + TLS backend is out of scope), so a
+  released Windows binary needs the curl DLL alongside it. This is what the
+  release workflow uses.
 
 ## Testing
 

@@ -27,8 +27,9 @@ jobs:
           ninjaVersion: "latest"
 
       # Prebuilt deps (find_package uses them; no third-party source build).
+      # sqlite3 + libcurl ship in the macOS SDK; nlohmann-json comes from brew.
       - name: Install LLVM + deps
-        run: brew install llvm raylib openal-soft
+        run: brew install llvm raylib openal-soft nlohmann-json
 
       - name: Configure / Build / Test
         run: |

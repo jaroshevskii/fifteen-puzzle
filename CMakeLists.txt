@@ -132,6 +132,57 @@ else()
   endif()
 endif()
 
+# --- nlohmann/json (header-only) ----------------------------------------------
+# Used by the Sharing file strategy and the network client for (de)serialization.
+# Header-only, so it is resolved the same way under static and dynamic builds.
+find_package(nlohmann_json QUIET)
+if(nlohmann_json_FOUND)
+  message(STATUS "nlohmann_json: using system package")
+else()
+  message(STATUS "nlohmann_json: building from source")
+  FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+    GIT_SHALLOW TRUE
+  )
+  set(JSON_BuildTests OFF CACHE INTERNAL "")
+  FetchContent_MakeAvailable(nlohmann_json)
+endif()
+
+# --- SQLite3 ------------------------------------------------------------------
+# Local leaderboard/stats database. find_package first (system libsqlite3 on
+# macOS/Linux, vcpkg on Windows); otherwise vendor the official amalgamation as
+# a tiny static C library, sidestepping SQLite's own CMake entirely.
+if(NOT FIFTEEN_STATIC_DEPS)
+  find_package(SQLite3 QUIET)
+endif()
+if(SQLite3_FOUND)
+  message(STATUS "SQLite3: using system package")
+  set(SQLITE_TARGET SQLite::SQLite3)
+else()
+  message(STATUS "SQLite3: building amalgamation from source")
+  # Fallback only — every CI runner has system SQLite (macOS/Linux) or vcpkg
+  # (Windows), so this path is a safety net. Bump the version if it is ever hit.
+  FetchContent_Declare(
+    sqlite_amalgamation
+    URL https://www.sqlite.org/2024/sqlite-amalgamation-3470200.zip
+  )
+  FetchContent_MakeAvailable(sqlite_amalgamation)
+  add_library(sqlite3_amalg STATIC ${sqlite_amalgamation_SOURCE_DIR}/sqlite3.c)
+  target_include_directories(sqlite3_amalg PUBLIC ${sqlite_amalgamation_SOURCE_DIR})
+  target_compile_definitions(sqlite3_amalg PRIVATE SQLITE_THREADSAFE=1 SQLITE_OMIT_LOAD_EXTENSION)
+  set(SQLITE_TARGET sqlite3_amalg)
+endif()
+
+# --- CURL ---------------------------------------------------------------------
+# HTTP transport for the network client. Always resolved via find_package (even
+# for static release builds): system libcurl ships on every CI runner and via
+# vcpkg, whereas a from-source static curl would also need a TLS backend built
+# and configured — out of scope here. The network client links it dynamically.
+find_package(CURL REQUIRED)
+message(STATUS "CURL: using ${CURL_VERSION_STRING}")
+
 # Helper: declare a C++20-module library from a list of module interface units.
 # `import std;` is enabled per target (not globally) so it does not leak into the
 # fetched third-party dependencies.
@@ -164,6 +215,38 @@ add_module_library(ComposableArchitecture
 )
 target_link_libraries(ComposableArchitecture PUBLIC Dependencies)
 
+# Plain value types shared by the network + database clients.
+add_module_library(SharedModels src/SharedModels/SharedModels.cppm)
+
+# --- Sharing (persisted shared state) -----------------------------------------
+
+add_module_library(Sharing
+  src/Sharing/Sharing-Strategy.cppm
+  src/Sharing/Sharing-Shared.cppm
+  src/Sharing/Sharing.cppm
+)
+
+add_module_library(AppSettings src/Sharing/AppSettings.cppm)
+
+# The JSON serializer is confined to the implementation unit (.cpp), so nlohmann
+# is linked PRIVATE and never leaks into AppSettingsLive's reachable interface.
+add_module_library(AppSettingsLive src/Sharing/AppSettingsLive.cppm)
+target_sources(AppSettingsLive PRIVATE src/Sharing/AppSettingsLive.cpp)
+target_link_libraries(AppSettingsLive PUBLIC AppSettings Sharing PRIVATE nlohmann_json::nlohmann_json)
+
+# --- SQLite database client ---------------------------------------------------
+
+# Low-level SQLite wrapper. Its methods are header-inline, so the sqlite3 symbols
+# are needed wherever it is used — link the target PUBLIC so consumers pick it up.
+add_module_library(Sqlite src/Sqlite/Sqlite.cppm)
+target_link_libraries(Sqlite PUBLIC ${SQLITE_TARGET})
+
+add_module_library(DatabaseClient src/DatabaseClient/DatabaseClient.cppm)
+target_link_libraries(DatabaseClient PUBLIC Dependencies SharedModels)
+
+add_module_library(DatabaseClientLive src/DatabaseClient/DatabaseClientLive.cppm)
+target_link_libraries(DatabaseClientLive PUBLIC DatabaseClient Sqlite)
+
 # --- Clients ------------------------------------------------------------------
 
 add_module_library(AudioPlayerClient src/AudioPlayerClient/AudioPlayerClient.cppm)
@@ -181,31 +264,50 @@ target_link_libraries(SolverClient PUBLIC Dependencies)
 add_module_library(SolverClientLive src/SolverClient/SolverClientLive.cppm)
 target_link_libraries(SolverClientLive PUBLIC SolverClient)
 
+# Network client. curl + JSON are confined to the implementation unit (.cpp),
+# so they are linked PRIVATE and never leak into ApiClientLive's interface.
+add_module_library(ApiClient src/ApiClient/ApiClient.cppm)
+target_link_libraries(ApiClient PUBLIC Dependencies SharedModels)
+
+add_module_library(ApiClientLive src/ApiClient/ApiClientLive.cppm)
+target_sources(ApiClientLive PRIVATE src/ApiClient/ApiClientLive.cpp)
+target_link_libraries(ApiClientLive PUBLIC ApiClient PRIVATE CURL::libcurl nlohmann_json::nlohmann_json)
+
 # --- Features -----------------------------------------------------------------
 
 add_module_library(PuzzleFeature src/Features/Puzzle/PuzzleFeature.cppm)
 # Implementation unit: editing reducer logic here recompiles only this object,
 # leaving the module's BMI (and therefore its importers) untouched.
 target_sources(PuzzleFeature PRIVATE src/Features/Puzzle/PuzzleFeature.cpp)
-target_link_libraries(PuzzleFeature PUBLIC ComposableArchitecture AudioPlayerClient SolverClient)
+target_link_libraries(PuzzleFeature PUBLIC ComposableArchitecture AudioPlayerClient SolverClient Sharing AppSettings)
 
 add_module_library(PuzzleFeatureView src/Features/Puzzle/PuzzleFeatureView.cppm)
 target_link_libraries(PuzzleFeatureView PUBLIC PuzzleFeature raylib)
 
+add_module_library(LeaderboardFeature src/Features/Leaderboard/LeaderboardFeature.cppm)
+target_sources(LeaderboardFeature PRIVATE src/Features/Leaderboard/LeaderboardFeature.cpp)
+target_link_libraries(LeaderboardFeature PUBLIC ComposableArchitecture ApiClient DatabaseClient SharedModels)
+
+add_module_library(LeaderboardFeatureView src/Features/Leaderboard/LeaderboardFeatureView.cppm)
+target_link_libraries(LeaderboardFeatureView PUBLIC LeaderboardFeature raylib)
+
 add_module_library(AppFeature src/Features/App/AppFeature.cppm)
-target_link_libraries(AppFeature PUBLIC PuzzleFeature)
+target_link_libraries(AppFeature PUBLIC PuzzleFeature LeaderboardFeature SharedModels Sharing AppSettings)
 
 add_module_library(AppFeatureView src/Features/App/AppFeatureView.cppm)
-target_link_libraries(AppFeatureView PUBLIC AppFeature PuzzleFeatureView raylib)
+target_link_libraries(AppFeatureView PUBLIC AppFeature PuzzleFeatureView LeaderboardFeatureView raylib)
 
 # --- Executable ---------------------------------------------------------------
 
 add_executable(${PROJECT_NAME} main.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(${PROJECT_NAME} PRIVATE
-  AppFeatureView AppFeature PuzzleFeature ComposableArchitecture
+  AppFeatureView AppFeature PuzzleFeature LeaderboardFeature ComposableArchitecture
   AudioPlayerClient AudioPlayerClientLive
   SolverClient SolverClientLive
+  ApiClient ApiClientLive
+  DatabaseClient DatabaseClientLive
+  Sharing AppSettings AppSettingsLive
 )
 
 # --- Tests --------------------------------------------------------------------
@@ -230,3 +332,21 @@ set_target_properties(SolverClientTests PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(SolverClientTests PRIVATE SolverClient SolverClientLive)
 
 add_test(NAME SolverClientTests COMMAND SolverClientTests)
+
+add_executable(SharingTests EXCLUDE_FROM_ALL tests/SharingTests.cpp)
+set_target_properties(SharingTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(SharingTests PRIVATE Sharing AppSettings AppSettingsLive)
+
+add_test(NAME SharingTests COMMAND SharingTests)
+
+add_executable(DatabaseClientTests EXCLUDE_FROM_ALL tests/DatabaseClientTests.cpp)
+set_target_properties(DatabaseClientTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(DatabaseClientTests PRIVATE DatabaseClient DatabaseClientLive)
+
+add_test(NAME DatabaseClientTests COMMAND DatabaseClientTests)
+
+add_executable(LeaderboardFeatureTests EXCLUDE_FROM_ALL tests/LeaderboardFeatureTests.cpp)
+set_target_properties(LeaderboardFeatureTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(LeaderboardFeatureTests PRIVATE LeaderboardFeature ComposableArchitecture ApiClient DatabaseClient SharedModels)
+
+add_test(NAME LeaderboardFeatureTests COMMAND LeaderboardFeatureTests)

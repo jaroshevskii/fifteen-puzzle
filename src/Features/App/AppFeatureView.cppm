@@ -8,6 +8,8 @@ import std;
 import AppFeature;
 import PuzzleFeature;
 import PuzzleFeatureView;
+import LeaderboardFeature;
+import LeaderboardFeatureView;
 
 export namespace AppFeatureView {
 
@@ -34,11 +36,17 @@ std::vector<AppFeature::Action> collectActions(const AppFeature::State &state) {
     actions.push_back(AppFeature::Puzzle{puzzleAction});
   }
 
+  for (const auto &leaderboardAction :
+       LeaderboardFeatureView::collectActions(state.leaderboard)) {
+    actions.push_back(AppFeature::Leaderboard{leaderboardAction});
+  }
+
   return actions;
 }
 
 void draw(const AppFeature::State &state) {
   PuzzleFeatureView::draw(state.puzzle);
+  LeaderboardFeatureView::draw(state.leaderboard); // overlay when visible
 }
 
 } // namespace AppFeatureView

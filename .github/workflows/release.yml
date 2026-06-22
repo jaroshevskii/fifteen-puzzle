@@ -45,14 +45,25 @@ jobs:
           wget -q https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 21
+          # libcurl is linked dynamically even in static builds (a from-source
+          # static curl + TLS backend is out of scope); sqlite + json are
+          # vendored from source by FIFTEEN_STATIC_DEPS.
           sudo apt-get install -y \
-            clang-21 lld-21 libc++-21-dev libc++abi-21-dev \
+            clang-21 lld-21 libc++-21-dev libc++abi-21-dev libcurl4-openssl-dev \
             libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
             libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev
 
       - name: Set up MSVC developer environment (Windows)
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
+
+      # libcurl is not in the Windows SDK; install it via vcpkg (linked
+      # dynamically — the release exe needs the curl DLL alongside it).
+      - name: Install curl (vcpkg, Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install curl --triplet x64-windows
 
       # --- build (static deps, Release) ----------------------------------------
       - name: Build (macOS)
@@ -82,7 +93,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          cmake --preset windows -DCMAKE_BUILD_TYPE=Release -DFIFTEEN_STATIC_DEPS=ON
+          cmake --preset windows -DCMAKE_BUILD_TYPE=Release -DFIFTEEN_STATIC_DEPS=ON -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
           cmake --build --preset windows
 
       # --- package + publish ----------------------------------------------------
