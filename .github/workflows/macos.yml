@@ -26,9 +26,24 @@ jobs:
           cmakeVersion: "4.2.3"
           ninjaVersion: "latest"
 
+      # Cache the downloaded Homebrew bottles so repeat runs skip re-fetching
+      # the (large) LLVM bottle. Rolling key + restore-keys: each run saves a
+      # fresh cache and restores the most recent one.
+      - name: Cache Homebrew downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/Homebrew/downloads
+          key: brew-macos-${{ github.run_id }}
+          restore-keys: brew-macos-
+
       # Prebuilt deps (find_package uses them; no third-party source build).
       # sqlite3 + libcurl ship in the macOS SDK; nlohmann-json comes from brew.
+      # HOMEBREW_NO_AUTO_UPDATE skips the slow per-run formula-index resync (the
+      # bulk of the time); NO_INSTALL_CLEANUP skips post-install cleanup.
       - name: Install LLVM + deps
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
         run: brew install llvm raylib openal-soft nlohmann-json
 
       - name: Configure / Build / Test
