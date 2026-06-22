@@ -23,7 +23,7 @@ export namespace AudioPlayerClient {
 // device stays open for as long as any copy of the client is alive.
 Client live();
 
-}  // namespace AudioPlayerClient
+} // namespace AudioPlayerClient
 
 namespace AudioPlayerClient {
 
@@ -31,7 +31,7 @@ namespace {
 
 // Owns the OpenAL device, context, and the single synthesized "tick" buffer.
 class Engine {
- public:
+public:
   Engine() {
     device_ = alcOpenDevice(nullptr);
     if (!device_) {
@@ -50,18 +50,22 @@ class Engine {
     constexpr float beepDuration = 0.08f;
     constexpr float beepFrequency = 1200.0f;
 
-    const int sampleCount = static_cast<int>(beepDuration * static_cast<float>(sampleRate));
+    const int sampleCount =
+        static_cast<int>(beepDuration * static_cast<float>(sampleRate));
     std::vector<ALshort> samples(sampleCount);
 
     for (int index = 0; index < sampleCount; ++index) {
-      const double t = static_cast<double>(index) / static_cast<double>(sampleRate);
-      double value = std::sin(2.0 * std::numbers::pi_v<double> * static_cast<double>(beepFrequency) * t);
+      const double t =
+          static_cast<double>(index) / static_cast<double>(sampleRate);
+      double value = std::sin(2.0 * std::numbers::pi_v<double> *
+                              static_cast<double>(beepFrequency) * t);
       value *= std::exp(-t / (static_cast<double>(beepDuration) * 0.25));
       samples[index] = static_cast<ALshort>(value * 22000.0);
     }
 
     alGenBuffers(1, &buffer_);
-    alBufferData(buffer_, AL_FORMAT_MONO16, samples.data(), sampleCount * static_cast<int>(sizeof(ALshort)), sampleRate);
+    alBufferData(buffer_, AL_FORMAT_MONO16, samples.data(),
+                 sampleCount * static_cast<int>(sizeof(ALshort)), sampleRate);
 
     alGenSources(1, &source_);
     alSourcei(source_, AL_BUFFER, static_cast<int>(buffer_));
@@ -85,10 +89,10 @@ class Engine {
     }
   }
 
-  Engine(const Engine&) = delete;
-  Engine& operator=(const Engine&) = delete;
-  Engine(Engine&&) = delete;
-  Engine& operator=(Engine&&) = delete;
+  Engine(const Engine &) = delete;
+  Engine &operator=(const Engine &) = delete;
+  Engine(Engine &&) = delete;
+  Engine &operator=(Engine &&) = delete;
 
   void playTick() {
     if (source_ != 0) {
@@ -96,24 +100,24 @@ class Engine {
     }
   }
 
- private:
-  ALCcontext* context_ = nullptr;
-  ALCdevice* device_ = nullptr;
+private:
+  ALCcontext *context_ = nullptr;
+  ALCdevice *device_ = nullptr;
   unsigned int buffer_ = 0;
   unsigned int source_ = 0;
 };
 
-}  // namespace
+} // namespace
 
 Client live() {
   auto engine = std::make_shared<Engine>();
   return Client{[engine](Sound sound) {
     switch (sound) {
-      case Sound::tick:
-        engine->playTick();
-        break;
+    case Sound::tick:
+      engine->playTick();
+      break;
     }
   }};
 }
 
-}  // namespace AudioPlayerClient
+} // namespace AudioPlayerClient

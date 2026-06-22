@@ -1,0 +1,30 @@
+name: Format
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: format-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  clang-format:
+    runs-on: macos-latest  # Homebrew clang-format, matching the project toolchain
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: brew install clang-format
+
+      - name: Check formatting (.clang-format = LLVM)
+        run: |
+          clang-format --version
+          files="$(git ls-files '*.cpp' '*.cppm')"
+          echo "$files"
+          clang-format --dry-run --Werror $files

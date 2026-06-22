@@ -17,7 +17,7 @@ using Dependencies::prepareDependencies;
 int main() {
   // Wire up live dependencies as early as possible, the analog of TCA's
   // `prepareDependencies` at the app entry point.
-  prepareDependencies([](DependencyValues& values) {
+  prepareDependencies([](DependencyValues &values) {
     values.set<AudioPlayerClient::Key>(AudioPlayerClient::live());
     values.set<SolverClient::Key>(SolverClient::live());
     // Resolve the remaining keys now so the dependency storage is fully
@@ -28,16 +28,18 @@ int main() {
 
   namespace Config = PuzzleFeature::Config;
   SetConfigFlags(FLAG_VSYNC_HINT);
-  InitWindow(Config::windowWidth(Config::minGrid), Config::windowHeight(Config::minGrid), "N Puzzle");
+  InitWindow(Config::windowWidth(Config::minGrid),
+             Config::windowHeight(Config::minGrid), "N Puzzle");
 
   // Constructing the store runs the feature's onMount (first shuffle + timer),
   // so there is no AppLaunched action to send.
-  RootStore<AppFeature::State, AppFeature::Action> store(AppFeature::initialState(), AppFeature::body);
+  RootStore<AppFeature::State, AppFeature::Action> store(
+      AppFeature::initialState(), AppFeature::body);
 
   int displayedGrid = Config::minGrid;
 
   while (!WindowShouldClose()) {
-    for (const auto& action : AppFeatureView::collectActions(store.state())) {
+    for (const auto &action : AppFeatureView::collectActions(store.state())) {
       store.send(action);
     }
 

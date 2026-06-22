@@ -16,7 +16,9 @@ struct RandomNumberGenerator {
   std::function<result_type()> next;
 
   static constexpr result_type min() noexcept { return 0; }
-  static constexpr result_type max() noexcept { return std::numeric_limits<result_type>::max(); }
+  static constexpr result_type max() noexcept {
+    return std::numeric_limits<result_type>::max();
+  }
   result_type operator()() { return next(); }
 
   // A generator seeded from a fixed value, producing a repeatable sequence.
@@ -26,7 +28,8 @@ struct RandomNumberGenerator {
   }
 };
 
-struct RandomNumberGeneratorKey : DependencyKey<RandomNumberGeneratorKey, RandomNumberGenerator> {
+struct RandomNumberGeneratorKey
+    : DependencyKey<RandomNumberGeneratorKey, RandomNumberGenerator> {
   // A nondeterministic generator seeded from the system entropy source.
   static RandomNumberGenerator liveValue() {
     auto engine = std::make_shared<std::mt19937_64>(std::random_device{}());
@@ -34,7 +37,9 @@ struct RandomNumberGeneratorKey : DependencyKey<RandomNumberGeneratorKey, Random
   }
 
   // A deterministic generator, so shuffling is reproducible in tests.
-  static RandomNumberGenerator testValue() { return RandomNumberGenerator::seeded(0); }
+  static RandomNumberGenerator testValue() {
+    return RandomNumberGenerator::seeded(0);
+  }
 };
 
-}  // namespace Dependencies
+} // namespace Dependencies

@@ -12,41 +12,47 @@ export namespace ComposableArchitecture {
 
 template <typename State, typename Action>
 class TestStore final : public Store<State, Action> {
- public:
+public:
   template <typename FeatureFactory>
     requires std::invocable<FeatureFactory> &&
-        std::same_as<std::invoke_result_t<FeatureFactory>, Feature<State, Action>>
+                 std::same_as<std::invoke_result_t<FeatureFactory>,
+                              Feature<State, Action>>
   TestStore(State initial, FeatureFactory makeFeature)
       : state_(std::move(initial)), feature_(makeFeature()) {
-    feature_.mount(state_, *this);  // onMount runs once, as in the live store
+    feature_.mount(state_, *this); // onMount runs once, as in the live store
   }
 
   ~TestStore() override {
     if (!pending_.empty()) {
-      reportFailure("test store deallocated with " + std::to_string(pending_.size()) +
+      reportFailure("test store deallocated with " +
+                    std::to_string(pending_.size()) +
                     " action(s) left unreceived");
     }
   }
 
   // --- Store interface (used by the feature under test) ---------------------
-  const State& state() const override { return state_; }
+  const State &state() const override { return state_; }
   State snapshot() override { return state_; }
   void send(Action action) override { pending_.push_back(std::move(action)); }
-  void modify(std::function<void(State&)> mutation) override { mutation(state_); }
-  void addTask(std::function<void(Store<State, Action>&, std::stop_token)> work, std::string = {}) override {
-    std::stop_source source;
-    work(*this, source.get_token());  // inline, deterministic
+  void modify(std::function<void(State &)> mutation) override {
+    mutation(state_);
   }
-  void cancel(const std::string&) override {}
+  void
+  addTask(std::function<void(Store<State, Action> &, std::stop_token)> work,
+          std::string = {}) override {
+    std::stop_source source;
+    work(*this, source.get_token()); // inline, deterministic
+  }
+  void cancel(const std::string &) override {}
 
   // --- test driver ----------------------------------------------------------
   // The assert closure is required (pass `{}` for "no change expected"); this
   // keeps the two-argument driver distinct from the one-argument Store::send
   // that features call from tasks.
-  void send(const Action& action, const std::function<void(State&)>& assert) {
+  void send(const Action &action, const std::function<void(State &)> &assert) {
     apply(action, assert, "send");
   }
-  void receive(const std::function<void(State&)>& assert = {}) {
+  void receive(const std::function<void(State &)> &assert = {}) {
     if (pending_.empty()) {
       reportFailure("receive called but no actions were produced");
       return;
@@ -58,15 +64,17 @@ class TestStore final : public Store<State, Action> {
 
   bool failed() const { return failed_; }
 
- private:
-  void apply(const Action& action, const std::function<void(State&)>& assert, std::string_view step) {
+private:
+  void apply(const Action &action, const std::function<void(State &)> &assert,
+             std::string_view step) {
     State expected = state_;
     feature_.update(state_, action, *this);
     if (assert) {
       assert(expected);
     }
     if (!(expected == state_)) {
-      reportFailure(std::string("state did not match expectation after ") + std::string(step));
+      reportFailure(std::string("state did not match expectation after ") +
+                    std::string(step));
     }
   }
 
@@ -81,4 +89,4 @@ class TestStore final : public Store<State, Action> {
   bool failed_ = false;
 };
 
-}  // namespace ComposableArchitecture
+} // namespace ComposableArchitecture

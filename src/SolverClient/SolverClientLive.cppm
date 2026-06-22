@@ -12,27 +12,29 @@ export namespace SolverClient {
 
 Client live();
 
-}  // namespace SolverClient
+} // namespace SolverClient
 
 namespace SolverClient {
 
 Client live() {
-  return Client{.plan = [](std::vector<int> history, int gridSize,
-                           std::stop_token stop) -> std::expected<std::vector<int>, SolveError> {
-    std::vector<int> solution;
-    if (history.empty()) {
-      return solution;  // already solved
-    }
-    solution.reserve(history.size());
-    for (int i = static_cast<int>(history.size()) - 2; i >= 0; --i) {
-      if ((i & 0xFFFF) == 0 && stop.stop_requested()) {
-        return std::unexpected(SolveError::cancelled);
-      }
-      solution.push_back(history[i]);
-    }
-    solution.push_back(gridSize * gridSize - 1);  // slide the blank back to the corner
-    return solution;
-  }};
+  return Client{
+      .plan = [](std::vector<int> history, int gridSize, std::stop_token stop)
+          -> std::expected<std::vector<int>, SolveError> {
+        std::vector<int> solution;
+        if (history.empty()) {
+          return solution; // already solved
+        }
+        solution.reserve(history.size());
+        for (int i = static_cast<int>(history.size()) - 2; i >= 0; --i) {
+          if ((i & 0xFFFF) == 0 && stop.stop_requested()) {
+            return std::unexpected(SolveError::cancelled);
+          }
+          solution.push_back(history[i]);
+        }
+        solution.push_back(gridSize * gridSize -
+                           1); // slide the blank back to the corner
+        return solution;
+      }};
 }
 
-}  // namespace SolverClient
+} // namespace SolverClient

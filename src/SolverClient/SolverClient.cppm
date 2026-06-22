@@ -10,21 +10,24 @@ import Dependencies;
 // The live planner lives in `SolverClientLive`; tests inject a stub.
 export namespace SolverClient {
 
-enum class SolveError {
+enum class SolveError : std::uint8_t {
   cancelled,
 };
 
 struct Client {
   // history: tile positions tapped (from solved) that produced the board.
   // gridSize: board side length. Returns the positions to tap to reach solved.
-  std::function<std::expected<std::vector<int>, SolveError>(std::vector<int>, int, std::stop_token)> plan =
-      [](std::vector<int>, int, std::stop_token) {
+  std::function<std::expected<std::vector<int>, SolveError>(
+      std::vector<int>, int, std::stop_token)>
+      plan = [](std::vector<int>, int, std::stop_token) {
         return std::expected<std::vector<int>, SolveError>{std::in_place};
       };
 };
 
 struct Key : Dependencies::DependencyKey<Key, Client> {
-  static Client liveValue() { return Client{}; }  // real planner supplied by SolverClientLive
+  static Client liveValue() {
+    return Client{};
+  } // real planner supplied by SolverClientLive
 };
 
-}  // namespace SolverClient
+} // namespace SolverClient

@@ -3,9 +3,9 @@ export module Dependencies:DateGenerator;
 import std;
 import :Core;
 
-// A controllable clock, mirroring TCA's `\.date` dependency. Reading the current
-// time goes through this dependency instead of calling a global clock directly,
-// which lets tests and previews pin time to a fixed value.
+// A controllable clock, mirroring TCA's `\.date` dependency. Reading the
+// current time goes through this dependency instead of calling a global clock
+// directly, which lets tests and previews pin time to a fixed value.
 export namespace Dependencies {
 
 struct DateGenerator {
@@ -25,7 +25,9 @@ struct DateGeneratorKey : DependencyKey<DateGeneratorKey, DateGenerator> {
   static DateGenerator liveValue() {
     const auto start = std::chrono::steady_clock::now();
     return DateGenerator{[start] {
-      return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+      return std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                           start)
+          .count();
     }};
   }
 
@@ -33,4 +35,4 @@ struct DateGeneratorKey : DependencyKey<DateGeneratorKey, DateGenerator> {
   static DateGenerator testValue() { return DateGenerator::constant(0.0); }
 };
 
-}  // namespace Dependencies
+} // namespace Dependencies

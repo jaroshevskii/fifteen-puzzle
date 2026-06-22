@@ -1,0 +1,2 @@
+# LLVM house style (the clang-format default).
+BasedOnStyle: LLVM

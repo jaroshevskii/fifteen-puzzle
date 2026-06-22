@@ -3,6 +3,7 @@
 [![macOS](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/macos.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/macos.yml)
 [![Linux](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/linux.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/linux.yml)
 [![Windows](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/windows.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/windows.yml)
+[![Format](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/format.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/format.yml)
 [![Release](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/release.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/release.yml)
 
 A implementation of the classic 15 Puzzle built with C++ and raylib.  
@@ -189,6 +190,20 @@ cmake --workflow --preset test          # macOS: configure + build tests + run
 # or, against an existing build dir (any platform):
 cmake --build --preset tests && ctest --preset macos   # tests / tests-linux / tests-windows
 ```
+
+## Code quality
+
+- **clang-format** — style is `.clang-format` (LLVM, the clang-format default).
+  The [Format workflow](.github/workflows/format.yml) fails CI on any drift;
+  format locally with `clang-format -i $(git ls-files '*.cpp' '*.cppm')`.
+- **clang-tidy** — `.clang-tidy` ships a curated check set. It runs against a
+  compile database (`cmake … -DCMAKE_EXPORT_COMPILE_COMMANDS=ON`, build, then
+  `clang-tidy -p build …`). It is **not** enforced in CI — it parses the modules
+  fine, but the findings need curation and it can't run as a per-TU build launcher
+  without breaking module compilation.
+- **CI hardening** — each workflow uses least-privilege `permissions:
+  contents: read` and `concurrency` (superseded runs are cancelled). Dependabot
+  keeps the Actions up to date.
 
 ## Releases
 

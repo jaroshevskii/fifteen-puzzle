@@ -1,0 +1,19 @@
+# Static-analysis config. clang-tidy works on this code when run standalone
+# against a compile database (it parses the modules / `import std`):
+#
+#   cmake --preset macos -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+#   cmake --build --preset macos                     # build the module BMIs first
+#   clang-tidy -p build $(git ls-files '*.cpp')
+#
+# It is intentionally NOT wired into the build via CMAKE_CXX_CLANG_TIDY: running
+# tidy as the per-TU compiler launcher interferes with C++20 module compilation.
+Checks: >
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  -modernize-use-nodiscard,
+  -bugprone-easily-swappable-parameters
+WarningsAsErrors: ''
+HeaderFilterRegex: '(src|tests)/.*'

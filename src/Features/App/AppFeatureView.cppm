@@ -11,31 +11,34 @@ import PuzzleFeatureView;
 
 export namespace AppFeatureView {
 
-std::vector<AppFeature::Action> collectActions(const AppFeature::State& state);
-void draw(const AppFeature::State& state);
+std::vector<AppFeature::Action> collectActions(const AppFeature::State &state);
+void draw(const AppFeature::State &state);
 
-}  // namespace AppFeatureView
+} // namespace AppFeatureView
 
-// --- Implementation -----------------------------------------------------------
+// --- Implementation
+// -----------------------------------------------------------
 
 namespace AppFeatureView {
 
-std::vector<AppFeature::Action> collectActions(const AppFeature::State& state) {
+std::vector<AppFeature::Action> collectActions(const AppFeature::State &state) {
   std::vector<AppFeature::Action> actions;
 
   if (IsKeyPressed(KEY_M)) {
-    actions.push_back(AppFeature::Puzzle{PuzzleFeature::SoundToggleButtonTapped{}});
+    actions.push_back(
+        AppFeature::Puzzle{PuzzleFeature::SoundToggleButtonTapped{}});
   }
 
-  for (const auto& puzzleAction : PuzzleFeatureView::collectActions(state.puzzle)) {
+  for (const auto &puzzleAction :
+       PuzzleFeatureView::collectActions(state.puzzle)) {
     actions.push_back(AppFeature::Puzzle{puzzleAction});
   }
 
   return actions;
 }
 
-void draw(const AppFeature::State& state) {
+void draw(const AppFeature::State &state) {
   PuzzleFeatureView::draw(state.puzzle);
 }
 
-}  // namespace AppFeatureView
+} // namespace AppFeatureView
