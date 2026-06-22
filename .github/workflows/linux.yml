@@ -41,7 +41,7 @@ jobs:
 
       # Cache the source build of any dependency not satisfied by a system package.
       - name: Cache built dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/_deps
           key: Linux-deps-${{ hashFiles('CMakeLists.txt') }}

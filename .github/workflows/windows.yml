@@ -33,7 +33,7 @@ jobs:
       # win as system packages). MSVC builds at C++23: CMake 4.2 supports neither
       # the C++26 dialect nor `import std` at C++26 for MSVC.
       - name: Cache built dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: build/_deps
           key: Windows-deps-${{ hashFiles('CMakeLists.txt') }}
