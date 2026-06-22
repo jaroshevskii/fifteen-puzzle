@@ -183,6 +183,22 @@ endif()
 find_package(CURL REQUIRED)
 message(STATUS "CURL: using ${CURL_VERSION_STRING}")
 
+# On macOS the system libcurl lives in the SDK, so find_package reports
+# "<sdk>/usr/include" as its include dir. Propagating that as an explicit
+# `-isystem <sdk>/usr/include` puts the SDK ahead of Clang's own resource
+# headers in the search order, breaking the SDK's `#include_next <stddef.h>`
+# chain (Homebrew Clang then fails with "unknown type name '__int64_t'" while
+# parsing <curl/curl.h>). Those headers are already reachable via the implicit
+# sysroot, so strip the bare "/usr/include" entry from the imported target.
+if(APPLE AND TARGET CURL::libcurl)
+  get_target_property(_curl_includes CURL::libcurl INTERFACE_INCLUDE_DIRECTORIES)
+  if(_curl_includes)
+    list(FILTER _curl_includes EXCLUDE REGEX "/usr/include/?$")
+    set_target_properties(CURL::libcurl PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${_curl_includes}")
+  endif()
+endif()
+
 # Helper: declare a C++20-module library from a list of module interface units.
 # `import std;` is enabled per target (not globally) so it does not leak into the
 # fetched third-party dependencies.
