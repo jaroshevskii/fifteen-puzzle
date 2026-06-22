@@ -17,7 +17,7 @@ jobs:
   clang-format:
     runs-on: macos-latest  # Homebrew clang-format, matching the project toolchain
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install clang-format
         run: brew install clang-format

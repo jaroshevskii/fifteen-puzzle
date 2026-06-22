@@ -26,7 +26,7 @@ jobs:
           - { name: Windows, runner: windows-latest, preset: windows, bin: FifteenPuzzle.exe, stem: FifteenPuzzle-windows-x86_64.exe, archive: FifteenPuzzle-windows-x86_64.zip }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install CMake + Ninja
         uses: lukka/get-cmake@latest

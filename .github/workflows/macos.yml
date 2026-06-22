@@ -17,7 +17,7 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # `import std;` is gated behind a CMake-version-specific UUID, so pin CMake.
       - name: Install CMake + Ninja
