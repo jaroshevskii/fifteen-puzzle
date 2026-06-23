@@ -30,10 +30,11 @@ Rectangle rectangleForIndex(int index, int grid) {
   return {static_cast<float>(col) * size, static_cast<float>(row) * size, size, size};
 }
 
-void drawCard(const std::string &text, Rectangle rect, int grid) {
-  DrawRectangleRec(rect, BLACK);
+void drawCard(const std::string &text, Rectangle rect, int grid, unsigned char alpha = 255) {
+  const float fade = static_cast<float>(alpha) / 255.0f;
+  DrawRectangleRec(rect, Fade(BLACK, fade));
   const Rectangle body{rect.x + 2.0f, rect.y + 2.0f, rect.width - 4.0f, rect.height - 4.0f};
-  DrawRectangleRec(body, text.empty() ? DARKPURPLE : ORANGE);
+  DrawRectangleRec(body, Fade(text.empty() ? DARKPURPLE : ORANGE, fade));
 
   if (!text.empty()) {
     int fontSize = Config::fontSize(grid);
@@ -45,15 +46,56 @@ void drawCard(const std::string &text, Rectangle rect, int grid) {
     const int x = static_cast<int>(
         rect.x + (rect.width - static_cast<float>(MeasureText(text.c_str(), fontSize))) / 2.0f);
     const int y = static_cast<int>(rect.y + (rect.height - static_cast<float>(fontSize)) / 2.0f);
-    DrawText(text.c_str(), x, y, fontSize, BLACK);
+    DrawText(text.c_str(), x, y, fontSize, Fade(BLACK, fade));
   }
 }
 
-void drawBoard(const PuzzleFeature::State &state) {
+float easeOutCubic(float t) {
+  const float u = 1.0f - t;
+  return 1.0f - u * u * u;
+}
+
+// Elapsed seconds since the board last (re)appeared. The "appear" resets when a
+// new game starts — detected by a change in (grid, startDate), guarded to
+// !isGameOver so winning (which clears startDate) doesn't replay it. View-only,
+// like the double-press timer below.
+double boardAppearElapsed(const PuzzleFeature::State &state) {
+  static int lastGrid = -1;
+  static std::optional<double> lastStart;
+  static double animStart = -1.0e9;
+  if (!state.isGameOver && (state.grid != lastGrid || state.startDate != lastStart)) {
+    lastGrid = state.grid;
+    lastStart = state.startDate;
+    animStart = GetTime();
+  }
+  return GetTime() - animStart;
+}
+
+void drawBoard(const PuzzleFeature::State &state, double appear) {
   const int boardPixels = static_cast<int>(Config::boardPixels(state.grid));
   DrawRectangle(0, 0, boardPixels, boardPixels, DARKPURPLE);
+
+  // Tiles drop in with a staggered ease-out when the board first appears; the
+  // spread is normalized by tile count so it stays ~0.6s on any board size.
+  const int count = state.grid * state.grid;
+  constexpr float spread = 0.3f;
+  constexpr float duration = 0.3f;
+
   for (int index = 0; index < static_cast<int>(state.tiles.size()); ++index) {
-    drawCard(state.tiles[index], rectangleForIndex(index, state.grid), state.grid);
+    Rectangle rect = rectangleForIndex(index, state.grid);
+    if (state.tiles[index].empty()) {
+      drawCard(state.tiles[index], rect, state.grid); // the hole stays put
+      continue;
+    }
+    const float progress = std::clamp(
+        static_cast<float>((appear - static_cast<double>(index) / count * spread) / duration), 0.0f,
+        1.0f);
+    if (progress <= 0.0f) {
+      continue; // not dropped in yet
+    }
+    const float eased = easeOutCubic(progress);
+    rect.y = -static_cast<float>(boardPixels) + (rect.y + static_cast<float>(boardPixels)) * eased;
+    drawCard(state.tiles[index], rect, state.grid, static_cast<unsigned char>(255 * progress));
   }
 }
 
@@ -165,7 +207,7 @@ std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State &st
 }
 
 void draw(const PuzzleFeature::State &state) {
-  drawBoard(state);
+  drawBoard(state, boardAppearElapsed(state));
   if (state.isGameOver) {
     drawOverlay();
   }
