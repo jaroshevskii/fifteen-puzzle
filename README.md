@@ -13,7 +13,7 @@ The project focuses on clarity, deterministic layout, and straightforward render
 
 # Demo
 
-https://github.com/user-attachments/assets/014517ab-ebbd-4619-8409-10c19ffa2edd
+https://github.com/user-attachments/assets/27aa40b4-fad5-4d7b-8968-d04e3f46d064
 
 ## Overview
 
