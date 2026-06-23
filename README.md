@@ -232,10 +232,11 @@ cmake --build --preset windows
   cache those source builds.
 - **Release (`-DFIFTEEN_STATIC_DEPS=ON`):** raylib + openal-soft are built from
   source and linked **statically**; SQLite is vendored from the amalgamation and
-  nlohmann/json is header-only. **libcurl is the exception** — it is always linked
-  dynamically (a from-source static curl + TLS backend is out of scope), so a
-  released Windows binary needs the curl DLL alongside it. This is what the
-  release workflow uses.
+  nlohmann/json is header-only. libcurl is handled per-platform: on **Windows**
+  the release links it statically via the `x64-windows-static-md` vcpkg triplet
+  (SChannel TLS, no extra DLLs — a self-contained `.exe`); on **macOS/Linux** it
+  uses the system libcurl, which is always present. This is what the release
+  workflow uses.
 
 ## Testing
 

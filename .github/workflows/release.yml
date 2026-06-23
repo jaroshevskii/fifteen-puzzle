@@ -57,13 +57,16 @@ jobs:
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
 
-      # libcurl is not in the Windows SDK; install it via vcpkg (linked
-      # dynamically — the release exe needs the curl DLL alongside it).
+      # libcurl is not in the Windows SDK; install it via vcpkg. The
+      # x64-windows-static-md triplet links libcurl (and zlib) statically into
+      # the exe while keeping the dynamic CRT (/MD) that matches the rest of the
+      # build — so the released binary is self-contained (no libcurl.dll). curl
+      # uses the system SChannel TLS backend, needing no extra libraries.
       - name: Install curl (vcpkg, Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install curl --triplet x64-windows
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install curl --triplet x64-windows-static-md
 
       # --- build (static deps, Release) ----------------------------------------
       - name: Build (macOS)
@@ -93,7 +96,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: |
-          cmake --preset windows -DCMAKE_BUILD_TYPE=Release -DFIFTEEN_STATIC_DEPS=ON -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+          cmake --preset windows -DCMAKE_BUILD_TYPE=Release -DFIFTEEN_STATIC_DEPS=ON -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static-md
           cmake --build --preset windows
 
       # --- package + publish ----------------------------------------------------
