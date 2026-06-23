@@ -62,6 +62,15 @@ State initialState(Sharing::Shared<AppSettings::Settings> settings,
 
 bool hasResumableGame(const State &state) { return state.savedGame.get().has_value(); }
 
+const AppSettings::Settings &effectiveSettings(const State &state) {
+  if (state.destination.has_value()) {
+    if (const auto *settings = std::get_if<SettingsFeature::State>(&*state.destination)) {
+      return settings->settings.get();
+    }
+  }
+  return state.puzzle.settings.get();
+}
+
 ComposableArchitecture::Feature<State, Action> body() {
   using FeatureStore = ComposableArchitecture::Store<State, Action>;
 

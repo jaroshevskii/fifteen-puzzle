@@ -5,6 +5,17 @@ set(CMAKE_EXPERIMENTAL_CXX_IMPORT_STD "d0edc3af-4c50-42ea-a356-e2862fe7a444")
 
 project(FifteenPuzzle LANGUAGES C CXX)
 
+# Default to an optimized build when none is requested. Besides being the sane
+# default, it is REQUIRED here: at bare -O0 this Clang + `import std` toolchain
+# miscompiles some module code into a corrupted call (a garbage jump that
+# crashes at run time but vanishes under any optimization or sanitizer). Any of
+# -O1/-Og/-O2 produces correct codegen. Release builds set their own type.
+get_property(_is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if(NOT _is_multi_config AND NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo CACHE STRING "Build type" FORCE)
+  message(STATUS "No CMAKE_BUILD_TYPE set; defaulting to RelWithDebInfo")
+endif()
+
 # The code only uses C++23 features (modules, `import std`, expected, jthread,
 # stop_token). Use C++26 on Clang/GCC, but C++23 on MSVC: CMake 4.2 does not
 # support the C++26 dialect or `import std` at C++26 for MSVC, while C++23 works.

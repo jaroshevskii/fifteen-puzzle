@@ -15,6 +15,11 @@ struct Settings {
   // When true, the app resumes the unfinished game straight away on launch;
   // when false it shows the menu with a Continue option. Off by default.
   bool autoResume = false;
+  // Display: windowed resolution + fullscreen toggle. The board is centered and
+  // scaled to fit whatever the resolution is.
+  bool fullscreen = false;
+  int displayWidth = 960;
+  int displayHeight = 720;
 
   bool operator==(const Settings &) const = default;
 };

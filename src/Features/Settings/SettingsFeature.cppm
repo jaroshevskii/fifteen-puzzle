@@ -25,8 +25,14 @@ struct BoardSizeSelected {
 struct PlayerNameChanged {
   std::string name;
 };
+struct FullscreenToggled {};
+struct ResolutionSelected {
+  int width = 0;
+  int height = 0;
+};
 
-using Action = std::variant<SoundToggled, AutoResumeToggled, BoardSizeSelected, PlayerNameChanged>;
+using Action = std::variant<SoundToggled, AutoResumeToggled, BoardSizeSelected, PlayerNameChanged,
+                            FullscreenToggled, ResolutionSelected>;
 
 State initialState(Sharing::Shared<AppSettings::Settings> settings = {});
 ComposableArchitecture::Feature<State, Action> body();

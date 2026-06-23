@@ -82,21 +82,25 @@ int main() {
     (void)values.get<DatabaseClient::Key>();
   });
 
-  namespace Config = PuzzleFeature::Config;
-  SetConfigFlags(FLAG_VSYNC_HINT);
-  InitWindow(Config::windowWidth(Config::minGrid), Config::windowHeight(Config::minGrid),
-             "N Puzzle");
+  // Open the window at the persisted resolution; the board centers + scales to
+  // fit, so the window size is a real choice (not derived from the board).
+  const AppSettings::Settings launchSettings = settings.get();
+  SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_RESIZABLE);
+  InitWindow(launchSettings.displayWidth, launchSettings.displayHeight, "15 Puzzle");
   // raylib closes the window on Esc by default; we use Esc for pause/back, and
   // Quit is an explicit menu action, so disable the built-in exit key.
   SetExitKey(KEY_NULL);
+  if (launchSettings.fullscreen) {
+    const int monitor = GetCurrentMonitor();
+    SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
+    ToggleFullscreen();
+  }
 
   // Constructing the store runs the feature's onMount (first shuffle + timer).
   // The initial state restores an unfinished game from `savedGame` and decides
   // whether to open on the menu or jump straight into the game (auto-resume).
   RootStore<AppFeature::State, AppFeature::Action> store(
       AppFeature::initialState(std::move(settings), std::move(savedGame)), AppFeature::body);
-
-  int displayedGrid = Config::minGrid;
 
   while (!WindowShouldClose()) {
     for (const auto &action : AppFeatureView::collectActions(store.state())) {
@@ -111,11 +115,21 @@ int main() {
       break;
     }
 
-    // Resize the window when the board size changes.
-    const int grid = store.state().puzzle.grid;
-    if (grid != displayedGrid) {
-      SetWindowSize(Config::windowWidth(grid), Config::windowHeight(grid));
-      displayedGrid = grid;
+    // Apply the desired display mode (previewed live while the settings screen
+    // is open via effectiveSettings).
+    const AppSettings::Settings &display = AppFeature::effectiveSettings(store.state());
+    if (display.fullscreen != IsWindowFullscreen()) {
+      if (display.fullscreen) {
+        const int monitor = GetCurrentMonitor();
+        SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
+        ToggleFullscreen();
+      } else {
+        ToggleFullscreen();
+        SetWindowSize(display.displayWidth, display.displayHeight);
+      }
+    } else if (!display.fullscreen && (GetScreenWidth() != display.displayWidth ||
+                                       GetScreenHeight() != display.displayHeight)) {
+      SetWindowSize(display.displayWidth, display.displayHeight);
     }
 
     BeginDrawing();

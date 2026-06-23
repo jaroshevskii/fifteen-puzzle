@@ -16,10 +16,11 @@ namespace AppSettings {
 namespace {
 
 std::string encode(const Settings &settings) {
-  const nlohmann::json doc{{"isSoundEnabled", settings.isSoundEnabled},
-                           {"lastBoardSize", settings.lastBoardSize},
-                           {"playerName", settings.playerName},
-                           {"autoResume", settings.autoResume}};
+  const nlohmann::json doc{
+      {"isSoundEnabled", settings.isSoundEnabled}, {"lastBoardSize", settings.lastBoardSize},
+      {"playerName", settings.playerName},         {"autoResume", settings.autoResume},
+      {"fullscreen", settings.fullscreen},         {"displayWidth", settings.displayWidth},
+      {"displayHeight", settings.displayHeight}};
   return doc.dump(2);
 }
 
@@ -31,6 +32,9 @@ std::optional<Settings> decode(std::string_view text) {
     settings.lastBoardSize = doc.value("lastBoardSize", 4);
     settings.playerName = doc.value("playerName", std::string("Player"));
     settings.autoResume = doc.value("autoResume", false);
+    settings.fullscreen = doc.value("fullscreen", false);
+    settings.displayWidth = doc.value("displayWidth", 960);
+    settings.displayHeight = doc.value("displayHeight", 720);
     return settings;
   } catch (...) {
     return std::nullopt;

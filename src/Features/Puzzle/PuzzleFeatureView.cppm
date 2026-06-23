@@ -26,21 +26,42 @@ namespace {
 
 namespace Config = PuzzleFeature::Config;
 
-Rectangle rectangleForIndex(int index, int grid) {
-  const float size = Config::tileSize(grid);
-  const int row = index / grid;
-  const int col = index % grid;
-  return {static_cast<float>(col) * size, static_cast<float>(row) * size, size, size};
+constexpr float kStatusHeight = 44.0f; // reserved for the status label
+constexpr float kMaxTile = 120.0f;     // cap so small boards aren't huge on big screens
+
+// The board is centered in the window and scaled so it always fits the current
+// resolution (shrinking when the grid is large or the screen is small).
+struct BoardLayout {
+  float originX;
+  float originY;
+  float tile;
+};
+
+BoardLayout boardLayout(int grid) {
+  const float screenW = static_cast<float>(GetScreenWidth());
+  const float screenH = static_cast<float>(GetScreenHeight());
+  const float available = std::min(screenW, screenH - kStatusHeight) * 0.92f;
+  const float tile = std::min(kMaxTile, available / static_cast<float>(grid));
+  const float board = tile * static_cast<float>(grid);
+  return {(screenW - board) / 2.0f, (screenH - kStatusHeight - board) / 2.0f, tile};
 }
 
-void drawCard(const std::string &text, Rectangle rect, int grid, unsigned char alpha = 255) {
+Rectangle rectangleForIndex(int index, int grid) {
+  const BoardLayout layout = boardLayout(grid);
+  const int row = index / grid;
+  const int col = index % grid;
+  return {layout.originX + static_cast<float>(col) * layout.tile,
+          layout.originY + static_cast<float>(row) * layout.tile, layout.tile, layout.tile};
+}
+
+void drawCard(const std::string &text, Rectangle rect, unsigned char alpha = 255) {
   const float fade = static_cast<float>(alpha) / 255.0f;
   DrawRectangleRec(rect, Fade(BLACK, fade));
   const Rectangle body{rect.x + 2.0f, rect.y + 2.0f, rect.width - 4.0f, rect.height - 4.0f};
   DrawRectangleRec(body, Fade(text.empty() ? DARKPURPLE : ORANGE, fade));
 
   if (!text.empty()) {
-    int fontSize = Config::fontSize(grid);
+    int fontSize = std::max(10, static_cast<int>(rect.height * 0.5f));
     // Shrink to fit wide labels on large boards (raylib fonts are
     // integer-sized).
     while (fontSize > 8 && MeasureText(text.c_str(), fontSize) > static_cast<int>(rect.width) - 8) {
@@ -75,8 +96,9 @@ double boardAppearElapsed(const PuzzleFeature::State &state) {
 }
 
 void drawBoard(const PuzzleFeature::State &state, double appear) {
-  const int boardPixels = static_cast<int>(Config::boardPixels(state.grid));
-  DrawRectangle(0, 0, boardPixels, boardPixels, DARKPURPLE);
+  const BoardLayout layout = boardLayout(state.grid);
+  const float board = layout.tile * static_cast<float>(state.grid);
+  DrawRectangleRec({layout.originX, layout.originY, board, board}, DARKPURPLE);
 
   // Tiles drop in with a staggered ease-out when the board first appears; the
   // spread is normalized by tile count so it stays ~0.6s on any board size.
@@ -87,7 +109,7 @@ void drawBoard(const PuzzleFeature::State &state, double appear) {
   for (int index = 0; index < static_cast<int>(state.tiles.size()); ++index) {
     Rectangle rect = rectangleForIndex(index, state.grid);
     if (state.tiles[index].empty()) {
-      drawCard(state.tiles[index], rect, state.grid); // the hole stays put
+      drawCard(state.tiles[index], rect); // the hole stays put
       continue;
     }
     const float progress = std::clamp(
@@ -97,8 +119,9 @@ void drawBoard(const PuzzleFeature::State &state, double appear) {
       continue; // not dropped in yet
     }
     const float eased = easeOutCubic(progress);
-    rect.y = -static_cast<float>(boardPixels) + (rect.y + static_cast<float>(boardPixels)) * eased;
-    drawCard(state.tiles[index], rect, state.grid, static_cast<unsigned char>(255 * progress));
+    const float startY = -layout.tile; // fly down from just above the screen
+    rect.y = startY + (rect.y - startY) * eased;
+    drawCard(state.tiles[index], rect, static_cast<unsigned char>(255 * progress));
   }
 }
 
@@ -128,9 +151,11 @@ void drawStatusLabel(const PuzzleFeature::State &state) {
   const int minutes = (totalSeconds % 3600) / 60;
   const int seconds = totalSeconds % 60;
   const std::string prefix = state.isGameOver ? "Victory Time " : "";
-  const std::string label = std::format("{}{:02}:{:02}:{:02}   {}x{}  (0-9 resize)", prefix, hours,
-                                        minutes, seconds, state.grid, state.grid);
-  DrawText(label.c_str(), 16, GetScreenHeight() - 40, 24, WHITE);
+  const std::string label = std::format("{}{:02}:{:02}:{:02}   {}x{}  (0-9 resize · Esc menu)",
+                                        prefix, hours, minutes, seconds, state.grid, state.grid);
+  constexpr int fontSize = 22;
+  DrawText(label.c_str(), (GetScreenWidth() - MeasureText(label.c_str(), fontSize)) / 2,
+           GetScreenHeight() - 32, fontSize, WHITE);
 }
 
 } // namespace

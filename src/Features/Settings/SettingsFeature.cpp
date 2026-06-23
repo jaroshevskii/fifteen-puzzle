@@ -44,6 +44,15 @@ ComposableArchitecture::Feature<State, Action> body() {
           } else if constexpr (std::is_same_v<V, PlayerNameChanged>) {
             state.settings.withMutation(
                 [name = value.name](AppSettings::Settings &s) { s.playerName = name; });
+          } else if constexpr (std::is_same_v<V, FullscreenToggled>) {
+            state.settings.withMutation(
+                [](AppSettings::Settings &s) { s.fullscreen = !s.fullscreen; });
+          } else if constexpr (std::is_same_v<V, ResolutionSelected>) {
+            state.settings.withMutation(
+                [w = value.width, h = value.height](AppSettings::Settings &s) {
+                  s.displayWidth = w;
+                  s.displayHeight = h;
+                });
           }
           persist();
         },

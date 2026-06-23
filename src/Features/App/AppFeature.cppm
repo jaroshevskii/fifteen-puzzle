@@ -84,4 +84,9 @@ ComposableArchitecture::Feature<State, Action> body();
 // Whether a resumable, unfinished game exists (drives the menu's Continue item).
 bool hasResumableGame(const State &state);
 
+// The settings currently in effect: the live settings-screen copy while it is
+// open (so the window can preview resolution/fullscreen changes), otherwise the
+// puzzle's persisted settings. Used by main to drive the window.
+const AppSettings::Settings &effectiveSettings(const State &state);
+
 } // namespace AppFeature
