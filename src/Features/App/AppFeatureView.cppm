@@ -231,11 +231,11 @@ void draw(const AppFeature::State &state) {
         } else if constexpr (std::is_same_v<S, AppFeature::MainMenuScreen>) {
           MenuView::draw("15 Puzzle", "", mainMenuButtons(state), menuSelected);
         } else if constexpr (std::is_same_v<S, AppFeature::PausedScreen>) {
-          PuzzleFeatureView::draw(state.puzzle);
+          PuzzleFeatureView::drawBoardOnly(state.puzzle);
           dim();
           MenuView::draw("Paused", "", kPausedButtons, pausedSelected);
         } else if constexpr (std::is_same_v<S, AppFeature::GameOverScreen>) {
-          PuzzleFeatureView::draw(state.puzzle);
+          PuzzleFeatureView::drawBoardOnly(state.puzzle);
           dim();
           MenuView::draw("Victory!", victorySubtitle(screen), kGameOverButtons, gameOverSelected);
         } else if constexpr (std::is_same_v<S, SettingsFeature::State>) {

@@ -88,7 +88,10 @@ ComposableArchitecture::Feature<State, Action> body() {
             state.destination = MainMenuScreen{};
           } else if constexpr (std::is_same_v<V, StartNewGame> || std::is_same_v<V, PlayAgain>) {
             state.destination = std::nullopt;
-            state.didSubmitCurrentWin = false;
+            // Don't clear didSubmitCurrentWin here: the puzzle is still solved
+            // this pass (the reshuffle below is queued), so doing so would make
+            // the win-edge re-fire and bounce back to Game Over. It re-arms on
+            // its own once the fresh board reports !isGameOver.
             store.send(Puzzle{
                 PuzzleFeature::BoardSizeSelected{state.puzzle.settings.get().lastBoardSize}});
           } else if constexpr (std::is_same_v<V, ContinueGame>) {

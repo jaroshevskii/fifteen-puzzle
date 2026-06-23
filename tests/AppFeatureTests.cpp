@@ -151,6 +151,44 @@ void testContinueRestoresSavedGame() {
       });
 }
 
+// Regression: from the victory screen, Play Again must return to a fresh game —
+// not bounce straight back to Game Over (which happened when the win flag was
+// re-armed before the queued reshuffle ran).
+void testPlayAgainReturnsToGame() {
+  withDependencies(
+      [](DependencyValues &values) {
+        values.context = DependencyContext::test;
+        values.set<DateGeneratorKey>(DateGenerator::constant(0.0));
+        values.set<RandomNumberGeneratorKey>(RandomNumberGenerator::seeded(2));
+      },
+      [] {
+        auto state = AppFeature::initialState();
+        state.puzzle.startDate = 0.0; // skip onMount reshuffle
+        state.puzzle.isGameOver = true;
+        state.puzzle.lastDuration = 5;
+        state.didSubmitCurrentWin = true;
+        state.destination = AppFeature::GameOverScreen{.durationSeconds = 5, .moves = 0};
+
+        TestStore<AppFeature::State, AppFeature::Action> store(std::move(state), AppFeature::body);
+
+        // Must land in-game (nullopt), not back on Game Over.
+        store.send(AppFeature::PlayAgain{},
+                   [](AppFeature::State &s) { s.destination = std::nullopt; });
+        // Drain the queued reshuffle (random board + autosave — mirror them).
+        store.receive([&store](AppFeature::State &expected) {
+          expected.puzzle = store.state().puzzle;
+          expected.savedGame = store.state().savedGame;
+          expected.lastSavedSig = store.state().lastSavedSig;
+          expected.didSubmitCurrentWin = store.state().didSubmitCurrentWin;
+        });
+
+        expect(!store.failed(), "Play Again returns to a fresh game (no Game Over bounce)");
+        expect(!store.state().destination.has_value(), "Play Again → in game");
+        expect(!store.state().puzzle.isGameOver, "Play Again starts an unsolved board");
+        return 0;
+      });
+}
+
 } // namespace
 
 int main() {
@@ -158,6 +196,7 @@ int main() {
   testPauseAndResume();
   testWinClearsSavedGameAndShowsVictory();
   testContinueRestoresSavedGame();
+  testPlayAgainReturnsToGame();
   if (failures == 0) {
     std::println("All AppFeature tests passed.");
     return 0;

@@ -11,6 +11,9 @@ export namespace PuzzleFeatureView {
 
 std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State &state);
 void draw(const PuzzleFeature::State &state);
+// Just the board (no victory overlay / solving banner / status label), for use
+// behind the pause and victory screens.
+void drawBoardOnly(const PuzzleFeature::State &state);
 
 } // namespace PuzzleFeatureView
 
@@ -204,6 +207,10 @@ std::vector<PuzzleFeature::Action> collectActions(const PuzzleFeature::State &st
   }
 
   return actions;
+}
+
+void drawBoardOnly(const PuzzleFeature::State &state) {
+  drawBoard(state, boardAppearElapsed(state));
 }
 
 void draw(const PuzzleFeature::State &state) {
