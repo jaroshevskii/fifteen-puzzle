@@ -49,11 +49,13 @@ State initialState(Sharing::Shared<AppSettings::Settings> settings,
   if (const auto &saved = state.savedGame.get(); saved.has_value()) {
     Dependencies::Dependency<Dependencies::DateGeneratorKey> date;
     restorePuzzle(state.puzzle, *saved, date->now());
+    // Auto-resume jumps straight into the game; otherwise play the intro first
+    // (it transitions to the menu, which then offers Continue).
     state.destination = state.puzzle.settings.get().autoResume
-                            ? std::optional<Destination>{} // jump into the game
-                            : std::optional<Destination>{MainMenuScreen{}};
+                            ? std::optional<Destination>{}
+                            : std::optional<Destination>{IntroScreen{}};
   } else {
-    state.destination = MainMenuScreen{};
+    state.destination = IntroScreen{};
   }
   return state;
 }

@@ -72,6 +72,83 @@ std::string victorySubtitle(const AppFeature::GameOverScreen &screen) {
 
 void dim() { DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, 180}); }
 
+// --- intro animation ------------------------------------------------------
+// View-driven (raylib clock), so it never touches feature state. The tiles
+// 1..15 drop into a 4x4 board with a staggered ease-out, the title fades in,
+// then the whole thing fades to the menu. Skippable with any key / click.
+constexpr double kIntroDuration = 2.4;
+
+double introElapsed() {
+  static double start = -1.0;
+  const double now = GetTime();
+  if (start < 0.0) {
+    start = now;
+  }
+  return now - start;
+}
+
+float easeOutCubic(float t) {
+  const float u = 1.0f - t;
+  return 1.0f - u * u * u;
+}
+
+bool introShouldFinish(double elapsed) {
+  return elapsed >= kIntroDuration || GetKeyPressed() != 0 ||
+         IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+}
+
+void drawIntro(double elapsed) {
+  const float w = static_cast<float>(GetScreenWidth());
+  const float h = static_cast<float>(GetScreenHeight());
+  const float tile = std::min(w, h) / 6.0f;
+  const float board = tile * 4.0f;
+  const float originX = (w - board) / 2.0f;
+  const float originY = (h - board) / 2.0f + 10.0f;
+  constexpr float animDur = 0.45f;
+  constexpr float stagger = 0.05f;
+
+  for (int i = 0; i < 15; ++i) { // 1..15; the 16th cell is empty
+    const float progress =
+        std::clamp(static_cast<float>((elapsed - i * stagger) / animDur), 0.0f, 1.0f);
+    if (progress <= 0.0f) {
+      continue;
+    }
+    const float eased = easeOutCubic(progress);
+    const float targetY = originY + static_cast<float>(i / 4) * tile;
+    const float y = -tile + (targetY + tile) * eased;
+    const float x = originX + static_cast<float>(i % 4) * tile;
+    const auto alpha = static_cast<unsigned char>(255 * std::clamp(progress * 1.5f, 0.0f, 1.0f));
+
+    const Rectangle rect{x + 2.0f, y + 2.0f, tile - 4.0f, tile - 4.0f};
+    DrawRectangleRec(rect, Color{230, 126, 34, alpha});
+    const std::string label = std::to_string(i + 1);
+    const int font = static_cast<int>(tile * 0.5f);
+    DrawText(label.c_str(),
+             static_cast<int>(rect.x + (rect.width - MeasureText(label.c_str(), font)) / 2.0f),
+             static_cast<int>(rect.y + (rect.height - font) / 2.0f), font,
+             Color{20, 20, 20, alpha});
+  }
+
+  const auto titleAlpha = static_cast<unsigned char>(
+      255 * std::clamp(static_cast<float>((elapsed - 0.9) / 0.5), 0.0f, 1.0f));
+  constexpr int titleFont = 36;
+  DrawText("15 Puzzle", (GetScreenWidth() - MeasureText("15 Puzzle", titleFont)) / 2, 16, titleFont,
+           Color{255, 255, 255, titleAlpha});
+
+  if (elapsed > 1.4) {
+    constexpr int hintFont = 16;
+    DrawText("press any key", (GetScreenWidth() - MeasureText("press any key", hintFont)) / 2,
+             GetScreenHeight() - 30, hintFont, Color{170, 170, 170, 200});
+  }
+
+  // Fade to black over the tail, so the cut to the menu is smooth.
+  if (const double fadeStart = kIntroDuration - 0.3; elapsed > fadeStart) {
+    const auto fade = static_cast<unsigned char>(
+        255 * std::clamp(static_cast<float>((elapsed - fadeStart) / 0.3), 0.0f, 1.0f));
+    DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, fade});
+  }
+}
+
 } // namespace
 
 std::vector<AppFeature::Action> collectActions(const AppFeature::State &state) {
@@ -98,7 +175,11 @@ std::vector<AppFeature::Action> collectActions(const AppFeature::State &state) {
   std::visit(
       [&](auto &&screen) {
         using S = std::decay_t<decltype(screen)>;
-        if constexpr (std::is_same_v<S, AppFeature::MainMenuScreen>) {
+        if constexpr (std::is_same_v<S, AppFeature::IntroScreen>) {
+          if (introShouldFinish(introElapsed())) {
+            actions.push_back(AppFeature::ShowMenu{});
+          }
+        } else if constexpr (std::is_same_v<S, AppFeature::MainMenuScreen>) {
           runMenu(mainMenuButtons(state),
                   {AppFeature::StartNewGame{}, AppFeature::ContinueGame{},
                    AppFeature::OpenSettings{}, AppFeature::OpenLeaderboard{},
@@ -145,7 +226,9 @@ void draw(const AppFeature::State &state) {
   std::visit(
       [&](auto &&screen) {
         using S = std::decay_t<decltype(screen)>;
-        if constexpr (std::is_same_v<S, AppFeature::MainMenuScreen>) {
+        if constexpr (std::is_same_v<S, AppFeature::IntroScreen>) {
+          drawIntro(introElapsed());
+        } else if constexpr (std::is_same_v<S, AppFeature::MainMenuScreen>) {
           MenuView::draw("15 Puzzle", "", mainMenuButtons(state), menuSelected);
         } else if constexpr (std::is_same_v<S, AppFeature::PausedScreen>) {
           PuzzleFeatureView::draw(state.puzzle);

@@ -16,6 +16,9 @@ import AppSettings;
 export namespace AppFeature {
 
 // Lightweight screens with no sub-feature of their own.
+struct IntroScreen {
+  bool operator==(const IntroScreen &) const = default;
+};
 struct MainMenuScreen {
   bool operator==(const MainMenuScreen &) const = default;
 };
@@ -29,7 +32,7 @@ struct GameOverScreen {
 };
 
 // Settings and Leaderboard carry real sub-feature state, scoped via `ifCaseLet`.
-using Destination = std::variant<MainMenuScreen, PausedScreen, GameOverScreen,
+using Destination = std::variant<IntroScreen, MainMenuScreen, PausedScreen, GameOverScreen,
                                  SettingsFeature::State, LeaderboardFeature::State>;
 
 struct State {

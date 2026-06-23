@@ -47,7 +47,7 @@ AppFeature::State inGameState() {
   return s;
 }
 
-void testLaunchShowsMenu() {
+void testLaunchShowsIntroThenMenu() {
   withDependencies(
       [](DependencyValues &values) {
         values.context = DependencyContext::test;
@@ -57,8 +57,12 @@ void testLaunchShowsMenu() {
       [] {
         TestStore<AppFeature::State, AppFeature::Action> store(AppFeature::initialState(),
                                                                AppFeature::body);
+        expect(isScreen<AppFeature::IntroScreen>(store.state()), "launch shows the intro");
+        // The intro view emits ShowMenu when it finishes (or is skipped).
+        store.send(AppFeature::ShowMenu{},
+                   [](AppFeature::State &s) { s.destination = AppFeature::MainMenuScreen{}; });
         expect(isScreen<AppFeature::MainMenuScreen>(store.state()),
-               "launch (no save) shows the main menu");
+               "intro advances to the main menu");
         expect(!AppFeature::hasResumableGame(store.state()), "no resumable game at first launch");
         return 0;
       });
@@ -150,7 +154,7 @@ void testContinueRestoresSavedGame() {
 } // namespace
 
 int main() {
-  testLaunchShowsMenu();
+  testLaunchShowsIntroThenMenu();
   testPauseAndResume();
   testWinClearsSavedGameAndShowsVictory();
   testContinueRestoresSavedGame();
