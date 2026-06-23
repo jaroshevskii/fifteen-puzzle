@@ -12,6 +12,9 @@ struct Settings {
   int lastBoardSize = 4; // PuzzleFeature::Config::minGrid (kept literal to
                          // avoid a dependency cycle with the feature)
   std::string playerName = "Player";
+  // When true, the app resumes the unfinished game straight away on launch;
+  // when false it shows the menu with a Continue option. Off by default.
+  bool autoResume = false;
 
   bool operator==(const Settings &) const = default;
 };

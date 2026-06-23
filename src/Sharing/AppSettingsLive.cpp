@@ -18,7 +18,8 @@ namespace {
 std::string encode(const Settings &settings) {
   const nlohmann::json doc{{"isSoundEnabled", settings.isSoundEnabled},
                            {"lastBoardSize", settings.lastBoardSize},
-                           {"playerName", settings.playerName}};
+                           {"playerName", settings.playerName},
+                           {"autoResume", settings.autoResume}};
   return doc.dump(2);
 }
 
@@ -29,6 +30,7 @@ std::optional<Settings> decode(std::string_view text) {
     settings.isSoundEnabled = doc.value("isSoundEnabled", false);
     settings.lastBoardSize = doc.value("lastBoardSize", 4);
     settings.playerName = doc.value("playerName", std::string("Player"));
+    settings.autoResume = doc.value("autoResume", false);
     return settings;
   } catch (...) {
     return std::nullopt;

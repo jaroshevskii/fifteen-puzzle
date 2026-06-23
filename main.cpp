@@ -14,6 +14,8 @@ import DatabaseClientLive;
 import Sharing;
 import AppSettings;
 import AppSettingsLive;
+import SavedGame;
+import SavedGameLive;
 import AppFeature;
 import AppFeatureView;
 import PuzzleFeature;
@@ -53,9 +55,12 @@ int main() {
   std::error_code ec;
   std::filesystem::create_directories(dataDir, ec);
 
-  // Persisted settings load now (before the store), so onMount sees them.
+  // Persisted settings + saved game load now (before the store), so the initial
+  // state can restore an unfinished game and onMount sees the settings.
   Sharing::Shared<AppSettings::Settings> settings(
       AppSettings::settingsFileStorage(dataDir / "settings.json"));
+  Sharing::Shared<std::optional<SavedGame::Game>> savedGame(
+      SavedGame::savedGameFileStorage(dataDir / "savedgame.json"));
 
   // Wire up live dependencies as early as possible, the analog of TCA's
   // `prepareDependencies` at the app entry point.
@@ -81,11 +86,15 @@ int main() {
   SetConfigFlags(FLAG_VSYNC_HINT);
   InitWindow(Config::windowWidth(Config::minGrid), Config::windowHeight(Config::minGrid),
              "N Puzzle");
+  // raylib closes the window on Esc by default; we use Esc for pause/back, and
+  // Quit is an explicit menu action, so disable the built-in exit key.
+  SetExitKey(KEY_NULL);
 
-  // Constructing the store runs the feature's onMount (first shuffle + timer,
-  // and the leaderboard's initial load), so there is no AppLaunched action.
+  // Constructing the store runs the feature's onMount (first shuffle + timer).
+  // The initial state restores an unfinished game from `savedGame` and decides
+  // whether to open on the menu or jump straight into the game (auto-resume).
   RootStore<AppFeature::State, AppFeature::Action> store(
-      AppFeature::initialState(std::move(settings)), AppFeature::body);
+      AppFeature::initialState(std::move(settings), std::move(savedGame)), AppFeature::body);
 
   int displayedGrid = Config::minGrid;
 
@@ -96,6 +105,11 @@ int main() {
 
     // Deliver any actions produced by background effects (solver, network, db).
     store.pump();
+
+    // Quit selected from the menu.
+    if (store.state().wantsQuit) {
+      break;
+    }
 
     // Resize the window when the board size changes.
     const int grid = store.state().puzzle.grid;

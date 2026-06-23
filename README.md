@@ -127,27 +127,52 @@ deployment via the `FIFTEEN_API_BASE_URL` environment variable (REST contract:
 unreachable, the leaderboard simply shows local scores.
 
 A per-user data directory (`~/Library/Application Support/FifteenPuzzle` on
-macOS, `$XDG_DATA_HOME` on Linux, `%APPDATA%` on Windows) holds `settings.json`
-and `games.sqlite3`.
+macOS, `$XDG_DATA_HOME` on Linux, `%APPDATA%` on Windows) holds `settings.json`,
+`games.sqlite3`, and `savedgame.json`.
 
 [sharing]: https://github.com/pointfreeco/swift-sharing
 
+### Screen navigation & resume (state-driven)
+
+The app is a small state machine of screens — **Main Menu**, in-game, **Pause**,
+**Settings**, **Leaderboard**, **Victory** — modeled the modern-TCA way. The game
+state is always present; the other screens are a presented
+`std::optional<Destination>` (a `std::variant` of screen states), so exactly one
+screen is shown at a time and the in-progress game is never lost behind a menu.
+
+This needed a navigation primitive the CA core didn't have, so one was added —
+`ifCaseLet` (with `caseState`), the C++ analog of TCA's
+`ifLet(\.$destination) { Destination.body }`: it scopes a child feature into one
+case of the presented variant and runs it only while that case is active
+(late/cross-case actions are no-ops, exactly like TCA's `ifLet`).
+
+**Resume** is TCA-style state restoration: an in-progress game is auto-saved to
+`savedgame.json` (throttled, while playing) and cleared on a win. On launch the
+menu offers **Continue** when a save exists; the **Auto-resume** setting (off by
+default) instead jumps straight into the saved game. Pause freezes the timer
+(the clock only ticks in-game).
+
 ### Modules (`src/`)
 
-- `ComposableArchitecture` — core module (`:CasePath`, `:Effect`, `:Reducer`, `:Store`, `:TestStore` partitions)
+- `ComposableArchitecture` — core module (`:CasePath`, `:Store`, `:Feature`, `:Scope`, `:Navigation` [`ifCaseLet`/`caseState`], `:TestStore` partitions)
 - `Dependencies` — dependency container module (`:Core`, `:DateGenerator`, `:RandomNumberGenerator` partitions)
 - `SharedModels` — plain value types shared by the network and database clients (`LeaderboardEntry`, `ScoreSubmission`, `Stats`)
-- `Sharing` / `AppSettings` / `AppSettingsLive` — persisted shared state: a `Shared<T>` value with `inMemory` / JSON `fileStorage` strategies, used for app settings (sound, last board size, player name)
+- `Sharing` / `AppSettings` / `AppSettingsLive` — persisted shared state: a `Shared<T>` value with `inMemory` / JSON `fileStorage` strategies, used for app settings (sound, board size, player name, auto-resume)
+- `SavedGame` / `SavedGameLive` — the in-progress-game snapshot persisted for Continue / resume (save-nullopt clears it)
 - `Sqlite` / `DatabaseClient` / `DatabaseClientLive` — SQLite wrapper and the local leaderboard/stats database dependency
 - `ApiClient` / `ApiClientLive` — remote leaderboard dependency interface and its live libcurl + JSON implementation
 - `AudioPlayerClient` / `AudioPlayerClientLive` — audio dependency interface module and its live OpenAL implementation
 - `SolverClient` / `SolverClientLive` — auto-solve planner dependency and its live (history-reversing) implementation
 - `PuzzleFeature` / `PuzzleFeatureView` — puzzle reducer module and its raylib view module
-- `LeaderboardFeature` / `LeaderboardFeatureView` — leaderboard reducer (merges local + remote) and its raylib overlay view
-- `AppFeature` / `AppFeatureView` — composition-root reducer module scoping the puzzle + leaderboard, and its view
+- `SettingsFeature` / `SettingsFeatureView` — settings reducer (sound / board size / name / auto-resume) and its raylib view
+- `LeaderboardFeature` / `LeaderboardFeatureView` — leaderboard reducer (merges local + remote) and its raylib view
+- `MenuView` — a small raylib UI kit (button column) shared by the menu/pause/victory screens
+- `AppFeature` / `AppFeatureView` — composition-root reducer scoping the puzzle + presented destinations (menu/pause/settings/leaderboard/victory), and its one-screen-at-a-time view
 
 ## Controls
 
+- Menus — arrow keys / mouse to choose, Enter or click to select
+- Pause / back — Esc
 - Move tile — Left mouse click or arrow keys
 - Resize board — keys `0` (4×4) … `9` (13×13)
 - Shuffle — S
@@ -155,8 +180,7 @@ and `games.sqlite3`.
 - Toggle tick sound — M
 - Auto-solve (toggle) — H
 - Near-win shortcut — double-press W
-- Leaderboard overlay (toggle) — L
-- Restart after victory — Mouse click or R
+- Leaderboard — L (in game or from the menu)
 
 The board is resizable from 4×4 up to 13×13. The window grows with the board up
 to a cap (3× the base 4×4 board); beyond that, tiles shrink to fit.

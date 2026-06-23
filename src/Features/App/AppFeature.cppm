@@ -2,94 +2,83 @@ export module AppFeature;
 
 import std;
 import ComposableArchitecture;
-import Dependencies;
 import PuzzleFeature;
 import LeaderboardFeature;
-import SharedModels;
+import SettingsFeature;
+import SavedGame;
 import Sharing;
 import AppSettings;
 
+// The root feature. The game (puzzle) state is always present, so it is never
+// lost while visiting other screens; the non-game screens are a presented
+// `std::optional<Destination>` (the TCA enum-`Destination` pattern). When
+// `destination == nullopt` the game is shown; otherwise exactly one screen is.
 export namespace AppFeature {
 
+// Lightweight screens with no sub-feature of their own.
+struct MainMenuScreen {
+  bool operator==(const MainMenuScreen &) const = default;
+};
+struct PausedScreen {
+  bool operator==(const PausedScreen &) const = default;
+};
+struct GameOverScreen {
+  int durationSeconds = 0;
+  int moves = 0;
+  bool operator==(const GameOverScreen &) const = default;
+};
+
+// Settings and Leaderboard carry real sub-feature state, scoped via `ifCaseLet`.
+using Destination = std::variant<MainMenuScreen, PausedScreen, GameOverScreen,
+                                 SettingsFeature::State, LeaderboardFeature::State>;
+
 struct State {
-  PuzzleFeature::State puzzle;
-  LeaderboardFeature::State leaderboard;
-  // Edge-detects the win transition so a single completed game submits exactly
-  // one score (re-armed when a new game starts).
-  bool didSubmitCurrentWin = false;
+  PuzzleFeature::State puzzle;                  // always present
+  std::optional<Destination> destination;       // nullopt => game shown
+  std::optional<Destination> returnDestination; // where to go on Dismiss
+  Sharing::Shared<std::optional<SavedGame::Game>> savedGame;
+  bool didSubmitCurrentWin = false;                      // win edge-detect
+  std::optional<std::tuple<int, int, int>> lastSavedSig; // autosave throttle
+  bool wantsQuit = false;                                // main loop exits
 
   bool operator==(const State &) const = default;
 };
 
-// The root action domain wraps each child feature's actions.
+// Child-action wrappers.
 struct Puzzle {
   PuzzleFeature::Action action;
 };
 struct Leaderboard {
   LeaderboardFeature::Action action;
 };
+struct Settings {
+  SettingsFeature::Action action;
+};
 
-using Action = std::variant<Puzzle, Leaderboard>;
+// Navigation actions.
+struct ShowMenu {};
+struct StartNewGame {};
+struct ContinueGame {};
+struct PauseTapped {};
+struct Resume {};
+struct OpenSettings {};
+struct OpenLeaderboard {};
+struct Dismiss {};
+struct PlayAgain {};
+struct QuitTapped {};
 
-State initialState(Sharing::Shared<AppSettings::Settings> settings = {});
+using Action =
+    std::variant<Puzzle, Leaderboard, Settings, ShowMenu, StartNewGame, ContinueGame, PauseTapped,
+                 Resume, OpenSettings, OpenLeaderboard, Dismiss, PlayAgain, QuitTapped>;
+
+// Builds the initial state. If a saved game exists it is restored into the
+// puzzle; the launch screen is the game itself when `settings.autoResume` is on,
+// otherwise the main menu (which then offers Continue).
+State initialState(Sharing::Shared<AppSettings::Settings> settings = {},
+                   Sharing::Shared<std::optional<SavedGame::Game>> savedGame = {});
 ComposableArchitecture::Feature<State, Action> body();
 
-} // namespace AppFeature
-
-// --- Implementation
-// -----------------------------------------------------------
-
-namespace AppFeature {
-
-State initialState(Sharing::Shared<AppSettings::Settings> settings) {
-  auto puzzle = PuzzleFeature::initialState(std::move(settings));
-  LeaderboardFeature::State leaderboard;
-  leaderboard.gridSize = puzzle.grid; // show the current board's leaderboard
-  return State{.puzzle = std::move(puzzle), .leaderboard = std::move(leaderboard)};
-}
-
-// The root feature composes the puzzle and leaderboard scopes, with a small
-// glue body between them that turns a puzzle win into a leaderboard submission
-// (PuzzleFeature stays unaware of the leaderboard, keeping the graph acyclic —
-// the parent owns the cross-feature wiring, as in isowords).
-ComposableArchitecture::Feature<State, Action> body() {
-  using FeatureStore = ComposableArchitecture::Store<State, Action>;
-
-  auto feature =
-      ComposableArchitecture::Scope<State, Action, PuzzleFeature::State, PuzzleFeature::Action>(
-          &State::puzzle,
-          ComposableArchitecture::casePath<Action, Puzzle, PuzzleFeature::Action>(&Puzzle::action),
-          PuzzleFeature::body());
-
-  // Runs after the puzzle scope (order preserved by `add`), so the puzzle state
-  // it inspects already reflects the action just processed.
-  feature.add(ComposableArchitecture::Update<State, Action>(
-      [](State &state, const Action &, FeatureStore &store) {
-        if (state.puzzle.isGameOver && !state.didSubmitCurrentWin &&
-            state.puzzle.lastDuration.has_value()) {
-          state.didSubmitCurrentWin = true;
-          Dependencies::Dependency<Dependencies::DateGeneratorKey> date;
-          SharedModels::ScoreSubmission submission{
-              .name = state.puzzle.settings.get().playerName,
-              .gridSize = state.puzzle.grid,
-              .moves = static_cast<int>(state.puzzle.moveHistory.size()),
-              .duration = *state.puzzle.lastDuration,
-              .playedAt = date->now()};
-          state.leaderboard.gridSize = state.puzzle.grid;
-          store.send(Leaderboard{LeaderboardFeature::ScoreSubmitted{std::move(submission)}});
-        } else if (!state.puzzle.isGameOver) {
-          state.didSubmitCurrentWin = false; // re-arm for the next game
-        }
-      }));
-
-  feature.add(ComposableArchitecture::Scope<State, Action, LeaderboardFeature::State,
-                                            LeaderboardFeature::Action>(
-      &State::leaderboard,
-      ComposableArchitecture::casePath<Action, Leaderboard, LeaderboardFeature::Action>(
-          &Leaderboard::action),
-      LeaderboardFeature::body()));
-
-  return feature;
-}
+// Whether a resumable, unfinished game exists (drives the menu's Continue item).
+bool hasResumableGame(const State &state);
 
 } // namespace AppFeature

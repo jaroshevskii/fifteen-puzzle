@@ -226,6 +226,7 @@ add_module_library(ComposableArchitecture
   src/ComposableArchitecture/ComposableArchitecture-Feature.cppm
   src/ComposableArchitecture/ComposableArchitecture-Runtime.cppm
   src/ComposableArchitecture/ComposableArchitecture-Scope.cppm
+  src/ComposableArchitecture/ComposableArchitecture-Navigation.cppm
   src/ComposableArchitecture/ComposableArchitecture-TestStore.cppm
   src/ComposableArchitecture/ComposableArchitecture.cppm
 )
@@ -249,6 +250,13 @@ add_module_library(AppSettings src/Sharing/AppSettings.cppm)
 add_module_library(AppSettingsLive src/Sharing/AppSettingsLive.cppm)
 target_sources(AppSettingsLive PRIVATE src/Sharing/AppSettingsLive.cpp)
 target_link_libraries(AppSettingsLive PUBLIC AppSettings Sharing PRIVATE nlohmann_json::nlohmann_json)
+
+# Saved in-progress game (for resume / continue).
+add_module_library(SavedGame src/Sharing/SavedGame.cppm)
+
+add_module_library(SavedGameLive src/Sharing/SavedGameLive.cppm)
+target_sources(SavedGameLive PRIVATE src/Sharing/SavedGameLive.cpp)
+target_link_libraries(SavedGameLive PUBLIC SavedGame Sharing PRIVATE nlohmann_json::nlohmann_json)
 
 # --- SQLite database client ---------------------------------------------------
 
@@ -300,6 +308,17 @@ target_link_libraries(PuzzleFeature PUBLIC ComposableArchitecture AudioPlayerCli
 add_module_library(PuzzleFeatureView src/Features/Puzzle/PuzzleFeatureView.cppm)
 target_link_libraries(PuzzleFeatureView PUBLIC PuzzleFeature raylib)
 
+add_module_library(SettingsFeature src/Features/Settings/SettingsFeature.cppm)
+target_sources(SettingsFeature PRIVATE src/Features/Settings/SettingsFeature.cpp)
+target_link_libraries(SettingsFeature PUBLIC ComposableArchitecture Sharing AppSettings)
+
+add_module_library(SettingsFeatureView src/Features/Settings/SettingsFeatureView.cppm)
+target_link_libraries(SettingsFeatureView PUBLIC SettingsFeature AppSettings raylib)
+
+# Shared raylib UI kit for the menu-style screens (no feature deps).
+add_module_library(MenuView src/Features/App/MenuView.cppm)
+target_link_libraries(MenuView PUBLIC raylib)
+
 add_module_library(LeaderboardFeature src/Features/Leaderboard/LeaderboardFeature.cppm)
 target_sources(LeaderboardFeature PRIVATE src/Features/Leaderboard/LeaderboardFeature.cpp)
 target_link_libraries(LeaderboardFeature PUBLIC ComposableArchitecture ApiClient DatabaseClient SharedModels)
@@ -308,22 +327,27 @@ add_module_library(LeaderboardFeatureView src/Features/Leaderboard/LeaderboardFe
 target_link_libraries(LeaderboardFeatureView PUBLIC LeaderboardFeature raylib)
 
 add_module_library(AppFeature src/Features/App/AppFeature.cppm)
-target_link_libraries(AppFeature PUBLIC PuzzleFeature LeaderboardFeature SharedModels Sharing AppSettings)
+target_sources(AppFeature PRIVATE src/Features/App/AppFeature.cpp)
+target_link_libraries(AppFeature
+  PUBLIC PuzzleFeature LeaderboardFeature SettingsFeature SavedGame SharedModels Sharing AppSettings
+  PRIVATE DatabaseClient ApiClient)
 
 add_module_library(AppFeatureView src/Features/App/AppFeatureView.cppm)
-target_link_libraries(AppFeatureView PUBLIC AppFeature PuzzleFeatureView LeaderboardFeatureView raylib)
+target_link_libraries(AppFeatureView PUBLIC AppFeature PuzzleFeatureView LeaderboardFeatureView SettingsFeatureView MenuView raylib)
 
 # --- Executable ---------------------------------------------------------------
 
 add_executable(${PROJECT_NAME} main.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(${PROJECT_NAME} PRIVATE
-  AppFeatureView AppFeature PuzzleFeature LeaderboardFeature ComposableArchitecture
+  AppFeatureView AppFeature PuzzleFeature LeaderboardFeature SettingsFeature ComposableArchitecture
   AudioPlayerClient AudioPlayerClientLive
   SolverClient SolverClientLive
   ApiClient ApiClientLive
   DatabaseClient DatabaseClientLive
   Sharing AppSettings AppSettingsLive
+  SavedGame SavedGameLive
+  MenuView SettingsFeatureView
 )
 
 # --- Tests --------------------------------------------------------------------
@@ -366,3 +390,27 @@ set_target_properties(LeaderboardFeatureTests PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(LeaderboardFeatureTests PRIVATE LeaderboardFeature ComposableArchitecture ApiClient DatabaseClient SharedModels)
 
 add_test(NAME LeaderboardFeatureTests COMMAND LeaderboardFeatureTests)
+
+add_executable(NavigationTests EXCLUDE_FROM_ALL tests/NavigationTests.cpp)
+set_target_properties(NavigationTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(NavigationTests PRIVATE ComposableArchitecture)
+
+add_test(NAME NavigationTests COMMAND NavigationTests)
+
+add_executable(SavedGameTests EXCLUDE_FROM_ALL tests/SavedGameTests.cpp)
+set_target_properties(SavedGameTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(SavedGameTests PRIVATE SavedGame SavedGameLive Sharing)
+
+add_test(NAME SavedGameTests COMMAND SavedGameTests)
+
+add_executable(SettingsFeatureTests EXCLUDE_FROM_ALL tests/SettingsFeatureTests.cpp)
+set_target_properties(SettingsFeatureTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(SettingsFeatureTests PRIVATE SettingsFeature ComposableArchitecture Sharing AppSettings)
+
+add_test(NAME SettingsFeatureTests COMMAND SettingsFeatureTests)
+
+add_executable(AppFeatureTests EXCLUDE_FROM_ALL tests/AppFeatureTests.cpp)
+set_target_properties(AppFeatureTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(AppFeatureTests PRIVATE AppFeature PuzzleFeature SavedGame ComposableArchitecture Sharing AppSettings)
+
+add_test(NAME AppFeatureTests COMMAND AppFeatureTests)

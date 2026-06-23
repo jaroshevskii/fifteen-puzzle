@@ -51,9 +51,9 @@
     { "name": "linux", "configurePreset": "linux" },
     { "name": "windows", "configurePreset": "windows" },
     { "name": "default", "configurePreset": "default" },
-    { "name": "tests", "configurePreset": "macos", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests"] },
-    { "name": "tests-linux", "configurePreset": "linux", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests"] },
-    { "name": "tests-windows", "configurePreset": "windows", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests"] }
+    { "name": "tests", "configurePreset": "macos", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests", "NavigationTests", "SavedGameTests", "SettingsFeatureTests", "AppFeatureTests"] },
+    { "name": "tests-linux", "configurePreset": "linux", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests", "NavigationTests", "SavedGameTests", "SettingsFeatureTests", "AppFeatureTests"] },
+    { "name": "tests-windows", "configurePreset": "windows", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests", "NavigationTests", "SavedGameTests", "SettingsFeatureTests", "AppFeatureTests"] }
   ],
   "testPresets": [
     { "name": "macos", "configurePreset": "macos", "output": { "outputOnFailure": true } },

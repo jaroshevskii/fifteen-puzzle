@@ -8,5 +8,6 @@ export import :Store;
 export import :Feature;
 export import :Runtime;
 export import :Scope;
+export import :Navigation;
 export import :TestStore;
 export import Dependencies;
