@@ -35,8 +35,7 @@ void testInMemoryRoundTrip() {
 }
 
 void testFileStorageRoundTrip() {
-  const auto path =
-      std::filesystem::temp_directory_path() / "fifteen-sharing-test.json";
+  const auto path = std::filesystem::temp_directory_path() / "fifteen-sharing-test.json";
   std::error_code ec;
   std::filesystem::remove(path, ec);
 
@@ -44,8 +43,7 @@ void testFileStorageRoundTrip() {
   {
     auto strategy = AppSettings::settingsFileStorage(path);
     Sharing::Shared<AppSettings::Settings> shared(strategy);
-    expect(shared.get() == AppSettings::Settings{},
-           "fileStorage: missing file → default");
+    expect(shared.get() == AppSettings::Settings{}, "fileStorage: missing file → default");
     shared.withMutation([](AppSettings::Settings &s) {
       s.isSoundEnabled = true;
       s.playerName = "Grace";
@@ -68,8 +66,7 @@ void testFileStorageRoundTrip() {
     out.close();
     auto strategy = AppSettings::settingsFileStorage(path);
     Sharing::Shared<AppSettings::Settings> shared(strategy);
-    expect(shared.get() == AppSettings::Settings{},
-           "fileStorage: corrupt file → default");
+    expect(shared.get() == AppSettings::Settings{}, "fileStorage: corrupt file → default");
   }
 
   std::filesystem::remove(path, ec);

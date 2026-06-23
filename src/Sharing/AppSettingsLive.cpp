@@ -37,8 +37,7 @@ std::optional<Settings> decode(std::string_view text) {
 
 } // namespace
 
-Sharing::PersistenceStrategy<Settings>
-settingsFileStorage(std::filesystem::path path) {
+Sharing::PersistenceStrategy<Settings> settingsFileStorage(std::filesystem::path path) {
   return Sharing::fileStorage<Settings>(std::move(path), &encode, &decode);
 }
 

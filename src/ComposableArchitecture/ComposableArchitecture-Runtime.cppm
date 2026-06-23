@@ -11,13 +11,11 @@ import :Feature;
 // Async work runs on `std::jthread`s and is cooperatively cancellable.
 export namespace ComposableArchitecture {
 
-template <typename State, typename Action>
-class RootStore final : public Store<State, Action> {
+template <typename State, typename Action> class RootStore final : public Store<State, Action> {
 public:
   template <typename FeatureFactory>
     requires std::invocable<FeatureFactory> &&
-                 std::same_as<std::invoke_result_t<FeatureFactory>,
-                              Feature<State, Action>>
+                 std::same_as<std::invoke_result_t<FeatureFactory>, Feature<State, Action>>
   RootStore(State initial, FeatureFactory makeFeature)
       : state_(std::move(initial)), feature_(makeFeature()),
         mainThread_(std::this_thread::get_id()) {
@@ -58,37 +56,30 @@ public:
     drainIfMain();
   }
 
-  void
-  addTask(std::function<void(Store<State, Action> &, std::stop_token)> work,
-          std::string cancelID = {}) override {
+  void addTask(std::function<void(Store<State, Action> &, std::stop_token)> work,
+               std::string cancelID = {}) override {
     std::lock_guard lock(tasksMutex_);
     if (cancelID.empty()) {
       // Fire-and-forget: reap completed tasks so they don't accumulate.
-      std::erase_if(anonymousTasks_, [](const AnonymousTask &task) {
-        return task.done->load();
-      });
+      std::erase_if(anonymousTasks_, [](const AnonymousTask &task) { return task.done->load(); });
       auto done = std::make_shared<std::atomic<bool>>(false);
-      std::jthread worker(
-          [this, work = std::move(work), done](std::stop_token token) {
-            work(*this, token);
-            done->store(true);
-          });
+      std::jthread worker([this, work = std::move(work), done](std::stop_token token) {
+        work(*this, token);
+        done->store(true);
+      });
       anonymousTasks_.push_back(
           AnonymousTask{.done = std::move(done), .thread = std::move(worker)});
     } else {
       // Replacing an in-flight task with the same id requests its stop and
       // joins.
-      cancellableTasks_[cancelID] =
-          std::jthread([this, work = std::move(work)](std::stop_token token) {
-            work(*this, token);
-          });
+      cancellableTasks_[cancelID] = std::jthread(
+          [this, work = std::move(work)](std::stop_token token) { work(*this, token); });
     }
   }
 
   void cancel(const std::string &cancelID) override {
     std::lock_guard lock(tasksMutex_);
-    if (auto it = cancellableTasks_.find(cancelID);
-        it != cancellableTasks_.end()) {
+    if (auto it = cancellableTasks_.find(cancelID); it != cancellableTasks_.end()) {
       it->second.request_stop();
       cancellableTasks_.erase(it);
     }

@@ -50,8 +50,7 @@ public:
     auto it = storage_.find(index);
     if (it == storage_.end()) {
       it = storage_
-               .emplace(index, std::make_shared<Model<typename Key::Value>>(
-                                   resolveDefault<Key>()))
+               .emplace(index, std::make_shared<Model<typename Key::Value>>(resolveDefault<Key>()))
                .first;
     }
     return static_cast<Model<typename Key::Value> *>(it->second.get())->value;
@@ -86,9 +85,7 @@ private:
   template <typename T> struct Model : Concept {
     T value;
     explicit Model(T value) : value(std::move(value)) {}
-    std::shared_ptr<Concept> clone() const override {
-      return std::make_shared<Model<T>>(value);
-    }
+    std::shared_ptr<Concept> clone() const override { return std::make_shared<Model<T>>(value); }
   };
 
   void copyFrom(const DependencyValues &other) {
@@ -120,9 +117,7 @@ private:
 // enclosing `withDependencies` or `prepareDependencies`.
 template <typename Key> class Dependency {
 public:
-  typename Key::Value &value() const {
-    return DependencyValues::current().template get<Key>();
-  }
+  typename Key::Value &value() const { return DependencyValues::current().template get<Key>(); }
   typename Key::Value &operator*() const { return value(); }
   typename Key::Value *operator->() const { return &value(); }
 };
@@ -130,8 +125,8 @@ public:
 // Overrides dependencies for the duration of `operation`, restoring the
 // previous scope afterwards (even if `operation` throws).
 template <typename Operation>
-auto withDependencies(const std::function<void(DependencyValues &)> &update,
-                      Operation operation) -> decltype(operation()) {
+auto withDependencies(const std::function<void(DependencyValues &)> &update, Operation operation)
+    -> decltype(operation()) {
   DependencyValues scoped = DependencyValues::current();
   update(scoped);
 
@@ -150,8 +145,7 @@ auto withDependencies(const std::function<void(DependencyValues &)> &update,
 
 // Sets dependency values globally, intended to be called as early as possible
 // at app launch. Equivalent to TCA's `prepareDependencies`.
-inline void
-prepareDependencies(const std::function<void(DependencyValues &)> &update) {
+inline void prepareDependencies(const std::function<void(DependencyValues &)> &update) {
   update(DependencyValues::root());
 }
 

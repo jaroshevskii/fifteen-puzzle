@@ -17,8 +17,7 @@ constexpr int minGrid = 4;  // level 0 — the classic 15-puzzle
 constexpr int maxGrid = 13; // level 9
 constexpr float baseTileSize = 94.0f;
 constexpr float uiHeight = 50.0f;
-constexpr float maxBoardPixels =
-    3.0f * baseTileSize * minGrid; // window caps at 3x the base board
+constexpr float maxBoardPixels = 3.0f * baseTileSize * minGrid; // window caps at 3x the base board
 
 constexpr int gridForLevel(int level) {
   const int g = minGrid + level;
@@ -28,12 +27,8 @@ constexpr float tileSize(int grid) {
   const float fit = maxBoardPixels / static_cast<float>(grid);
   return fit < baseTileSize ? fit : baseTileSize;
 }
-constexpr float boardPixels(int grid) {
-  return tileSize(grid) * static_cast<float>(grid);
-}
-constexpr int windowWidth(int grid) {
-  return static_cast<int>(boardPixels(grid) + 0.5f);
-}
+constexpr float boardPixels(int grid) { return tileSize(grid) * static_cast<float>(grid); }
+constexpr int windowWidth(int grid) { return static_cast<int>(boardPixels(grid) + 0.5f); }
 constexpr int windowHeight(int grid) {
   return static_cast<int>(boardPixels(grid) + uiHeight + 0.5f);
 }
@@ -82,11 +77,9 @@ struct TileTapped {
 };
 struct TimerTicked {};
 
-using Action =
-    std::variant<AutoSolveButtonTapped, BoardSizeSelected,
-                 NearWinShortcutActivated, RestartButtonTapped,
-                 ShuffleButtonTapped, SoundToggleButtonTapped, SolverSucceeded,
-                 SolverFailed, TileTapped, TimerTicked>;
+using Action = std::variant<AutoSolveButtonTapped, BoardSizeSelected, NearWinShortcutActivated,
+                            RestartButtonTapped, ShuffleButtonTapped, SoundToggleButtonTapped,
+                            SolverSucceeded, SolverFailed, TileTapped, TimerTicked>;
 
 enum class Direction : std::uint8_t {
   up,

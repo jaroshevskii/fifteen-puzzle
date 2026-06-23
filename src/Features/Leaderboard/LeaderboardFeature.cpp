@@ -17,21 +17,18 @@ State initialState() { return State{}; }
 
 std::vector<SharedModels::LeaderboardEntry>
 mergeEntries(const std::vector<SharedModels::LeaderboardEntry> &local,
-             const std::vector<SharedModels::LeaderboardEntry> &remote,
-             int limit) {
+             const std::vector<SharedModels::LeaderboardEntry> &remote, int limit) {
   std::vector<SharedModels::LeaderboardEntry> all;
   all.reserve(local.size() + remote.size());
   all.insert(all.end(), local.begin(), local.end());
   all.insert(all.end(), remote.begin(), remote.end());
-  std::ranges::sort(all, [](const SharedModels::LeaderboardEntry &a,
-                            const SharedModels::LeaderboardEntry &b) {
-    return std::tie(a.duration, a.moves) < std::tie(b.duration, b.moves);
-  });
-  const auto dup =
-      std::ranges::unique(all, [](const SharedModels::LeaderboardEntry &a,
-                                  const SharedModels::LeaderboardEntry &b) {
-        return a.name == b.name && a.duration == b.duration &&
-               a.moves == b.moves;
+  std::ranges::sort(
+      all, [](const SharedModels::LeaderboardEntry &a, const SharedModels::LeaderboardEntry &b) {
+        return std::tie(a.duration, a.moves) < std::tie(b.duration, b.moves);
+      });
+  const auto dup = std::ranges::unique(
+      all, [](const SharedModels::LeaderboardEntry &a, const SharedModels::LeaderboardEntry &b) {
+        return a.name == b.name && a.duration == b.duration && a.moves == b.moves;
       });
   all.erase(dup.begin(), dup.end());
   if (limit >= 0 && static_cast<int>(all.size()) > limit) {
@@ -53,16 +50,14 @@ ComposableArchitecture::Feature<State, Action> body() {
     store.addTask([gridSize](FeatureStore &store, std::stop_token) {
       Dependencies::Dependency<DatabaseClient::Key> db;
       auto rows = db->fetchBestScores(gridSize);
-      store.send(LocalLoaded{
-          rows.has_value() ? std::move(*rows)
-                           : std::vector<SharedModels::LeaderboardEntry>{}});
+      store.send(LocalLoaded{rows.has_value() ? std::move(*rows)
+                                              : std::vector<SharedModels::LeaderboardEntry>{}});
     });
 
     store.addTask(
         [gridSize](FeatureStore &store, std::stop_token stop) {
           Dependencies::Dependency<ApiClient::Key> api;
-          store.send(
-              RemoteResponse{api->fetchLeaderboard(gridSize, std::move(stop))});
+          store.send(RemoteResponse{api->fetchLeaderboard(gridSize, std::move(stop))});
         },
         std::string(kRemoteCancelId));
   };
@@ -73,11 +68,9 @@ ComposableArchitecture::Feature<State, Action> body() {
                    [&](auto &&value) {
                      using V = std::decay_t<decltype(value)>;
 
-                     if constexpr (std::is_same_v<V, Appeared> ||
-                                   std::is_same_v<V, Refreshed>) {
+                     if constexpr (std::is_same_v<V, Appeared> || std::is_same_v<V, Refreshed>) {
                        load(state, store);
-                     } else if constexpr (std::is_same_v<V,
-                                                         VisibilityToggled>) {
+                     } else if constexpr (std::is_same_v<V, VisibilityToggled>) {
                        state.isVisible = !state.isVisible;
                        if (state.isVisible) {
                          load(state, store); // refresh whenever opened
@@ -85,8 +78,7 @@ ComposableArchitecture::Feature<State, Action> body() {
                      } else if constexpr (std::is_same_v<V, LocalLoaded>) {
                        state.isLoadingLocal = false;
                        state.localEntries = value.entries;
-                       state.merged = mergeEntries(state.localEntries,
-                                                   state.remoteEntries);
+                       state.merged = mergeEntries(state.localEntries, state.remoteEntries);
                      } else if constexpr (std::is_same_v<V, RemoteResponse>) {
                        state.isLoadingRemote = false;
                        if (value.result.has_value()) {
@@ -96,23 +88,19 @@ ComposableArchitecture::Feature<State, Action> body() {
                          state.remoteEntries.clear();
                          state.remoteError = value.result.error();
                        }
-                       state.merged = mergeEntries(state.localEntries,
-                                                   state.remoteEntries);
+                       state.merged = mergeEntries(state.localEntries, state.remoteEntries);
                      } else if constexpr (std::is_same_v<V, ScoreSubmitted>) {
                        const auto submission = value.submission;
                        // Persist locally (source of truth), then reload.
-                       store.addTask(
-                           [submission](FeatureStore &store, std::stop_token) {
-                             Dependencies::Dependency<DatabaseClient::Key> db;
-                             (void)db->saveGame(submission);
-                             store.send(Refreshed{});
-                           });
+                       store.addTask([submission](FeatureStore &store, std::stop_token) {
+                         Dependencies::Dependency<DatabaseClient::Key> db;
+                         (void)db->saveGame(submission);
+                         store.send(Refreshed{});
+                       });
                        // Push to the server best-effort.
-                       store.addTask([submission](FeatureStore &store,
-                                                  std::stop_token stop) {
+                       store.addTask([submission](FeatureStore &store, std::stop_token stop) {
                          Dependencies::Dependency<ApiClient::Key> api;
-                         store.send(SubmitResponse{
-                             api->submitScore(submission, std::move(stop))});
+                         store.send(SubmitResponse{api->submitScore(submission, std::move(stop))});
                        });
                      } else if constexpr (std::is_same_v<V, SubmitResponse>) {
                        if (!value.result.has_value()) {

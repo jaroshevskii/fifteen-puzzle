@@ -21,8 +21,7 @@ int colOf(int index, int grid) { return index % grid; }
 bool isAdjacent(int lhs, int rhs, int grid) {
   const int r1 = rowOf(lhs, grid), c1 = colOf(lhs, grid);
   const int r2 = rowOf(rhs, grid), c2 = colOf(rhs, grid);
-  return (r1 == r2 && std::abs(c1 - c2) == 1) ||
-         (c1 == c2 && std::abs(r1 - r2) == 1);
+  return (r1 == r2 && std::abs(c1 - c2) == 1) || (c1 == c2 && std::abs(r1 - r2) == 1);
 }
 
 std::vector<std::string> solvedTiles(int grid) {
@@ -62,9 +61,8 @@ std::vector<int> neighbors(int pos, int grid) {
 
 // Builds a board by applying `count` random legal slides from solved, recording
 // the move history (so the board is always solvable and reversible).
-void scramble(int grid, RandomNumberGenerator &rng,
-              std::vector<std::string> &tiles, std::vector<int> &history,
-              int count) {
+void scramble(int grid, RandomNumberGenerator &rng, std::vector<std::string> &tiles,
+              std::vector<int> &history, int count) {
   tiles = solvedTiles(grid);
   history.clear();
   int empty = grid * grid - 1;
@@ -72,8 +70,8 @@ void scramble(int grid, RandomNumberGenerator &rng,
   for (int i = 0; i < count; ++i) {
     auto options = neighbors(empty, grid);
     std::erase(options, previous); // avoid immediately undoing the last slide
-    const int pick = options[std::uniform_int_distribution<std::size_t>(
-        0, options.size() - 1)(rng)];
+    const int pick =
+        options[std::uniform_int_distribution<std::size_t>(0, options.size() - 1)(rng)];
     std::swap(tiles[empty], tiles[pick]);
     history.push_back(pick);
     previous = empty;
@@ -99,8 +97,7 @@ void startNewGame(State &state, int grid, RandomNumberGenerator &rng) {
 // move.
 bool applySlide(State &state, int pos) {
   const auto empty = emptyIndex(state);
-  if (empty.has_value() && pos >= 0 &&
-      pos < static_cast<int>(state.tiles.size()) &&
+  if (empty.has_value() && pos >= 0 && pos < static_cast<int>(state.tiles.size()) &&
       isAdjacent(pos, *empty, state.grid)) {
     std::swap(state.tiles[pos], state.tiles[*empty]);
     state.moveHistory.push_back(pos);
@@ -112,11 +109,8 @@ bool applySlide(State &state, int pos) {
 } // namespace
 
 State initialState(Sharing::Shared<AppSettings::Settings> settings) {
-  const int grid = std::clamp(settings.get().lastBoardSize, Config::minGrid,
-                              Config::maxGrid);
-  return State{.grid = grid,
-               .tiles = solvedTiles(grid),
-               .settings = std::move(settings)};
+  const int grid = std::clamp(settings.get().lastBoardSize, Config::minGrid, Config::maxGrid);
+  return State{.grid = grid, .tiles = solvedTiles(grid), .settings = std::move(settings)};
 }
 
 int displayedSeconds(const State &state) {
@@ -166,8 +160,7 @@ std::optional<int> movableTileIndex(const State &state, Direction direction) {
 ComposableArchitecture::Feature<State, Action> body() {
   using FeatureStore = ComposableArchitecture::Store<State, Action>;
 
-  return ComposableArchitecture::Update<State, Action>([](State &state,
-                                                          const Action &action,
+  return ComposableArchitecture::Update<State, Action>([](State &state, const Action &action,
                                                           FeatureStore &store) {
            Dependencies::Dependency<Dependencies::DateGeneratorKey> date;
            Dependencies::Dependency<Dependencies::RandomNumberGeneratorKey> rng;
@@ -186,11 +179,8 @@ ComposableArchitecture::Feature<State, Action> body() {
            // Sharing analog of a save effect. Captures the strategy + a copy of
            // the new value, so the background write never touches state.
            const auto persistSettings = [&] {
-             store.addTask([strategy = state.settings.strategy(),
-                            value = state.settings.get()](FeatureStore &,
-                                                          std::stop_token) {
-               strategy.save(value);
-             });
+             store.addTask([strategy = state.settings.strategy(), value = state.settings.get()](
+                               FeatureStore &, std::stop_token) { strategy.save(value); });
            };
 
            std::visit(
@@ -200,18 +190,16 @@ ComposableArchitecture::Feature<State, Action> body() {
                  if constexpr (std::is_same_v<Value, AutoSolveButtonTapped>) {
                    if (state.isSolving) {
                      stopSolving();
-                   } else if (state.startDate.has_value() &&
-                              !state.isGameOver) {
+                   } else if (state.startDate.has_value() && !state.isGameOver) {
                      state.isSolving = true;
                      // Run the (history-reversing) planner on a background
                      // task; it reports the solution back as an action.
                      // Cancellable by id.
                      store.addTask(
-                         [history = state.moveHistory, grid = state.grid](
-                             FeatureStore &store, std::stop_token stop) {
+                         [history = state.moveHistory, grid = state.grid](FeatureStore &store,
+                                                                          std::stop_token stop) {
                            Dependencies::Dependency<SolverClient::Key> solver;
-                           auto plan =
-                               solver->plan(history, grid, std::move(stop));
+                           auto plan = solver->plan(history, grid, std::move(stop));
                            if (plan.has_value()) {
                              store.send(SolverSucceeded{std::move(*plan)});
                            } else {
@@ -220,25 +208,21 @@ ComposableArchitecture::Feature<State, Action> body() {
                          },
                          std::string(kSolverCancelId));
                    }
-                 } else if constexpr (std::is_same_v<Value,
-                                                     BoardSizeSelected>) {
+                 } else if constexpr (std::is_same_v<Value, BoardSizeSelected>) {
                    stopSolving();
                    startNewGame(state, value.grid, *rng);
                    state.startDate = date->now();
                    // Remember the chosen board size for next launch.
                    state.settings.withMutation(
-                       [grid = value.grid](AppSettings::Settings &s) {
-                         s.lastBoardSize = grid;
-                       });
+                       [grid = value.grid](AppSettings::Settings &s) { s.lastBoardSize = grid; });
                    persistSettings();
                  } else if constexpr (std::is_same_v<Value, SolverSucceeded>) {
                    if (state.isSolving) {
                      state.pendingMoves = std::move(value.moves);
                      state.nextMoveAt = date->now();
-                     const double count = static_cast<double>(
-                         std::max<std::size_t>(1, state.pendingMoves.size()));
-                     state.solveInterval =
-                         std::clamp(4.0 / count, 0.0008, 0.10);
+                     const double count =
+                         static_cast<double>(std::max<std::size_t>(1, state.pendingMoves.size()));
+                     state.solveInterval = std::clamp(4.0 / count, 0.0008, 0.10);
                      if (state.pendingMoves.empty()) {
                        state.isSolving = false;
                      }
@@ -246,36 +230,30 @@ ComposableArchitecture::Feature<State, Action> body() {
                  } else if constexpr (std::is_same_v<Value, SolverFailed>) {
                    state.isSolving = false;
                    state.pendingMoves.clear();
-                 } else if constexpr (std::is_same_v<
-                                          Value, NearWinShortcutActivated>) {
+                 } else if constexpr (std::is_same_v<Value, NearWinShortcutActivated>) {
                    stopSolving();
                    state.tiles = solvedTiles(state.grid);
                    state.moveHistory.clear();
                    int empty = state.grid * state.grid - 1;
                    for (int step = 0; step < 2; ++step) {
                      auto options = neighbors(empty, state.grid);
-                     const int pick =
-                         options[std::uniform_int_distribution<std::size_t>(
-                             0, options.size() - 1)(*rng)];
+                     const int pick = options[std::uniform_int_distribution<std::size_t>(
+                         0, options.size() - 1)(*rng)];
                      std::swap(state.tiles[empty], state.tiles[pick]);
                      state.moveHistory.push_back(pick);
                      empty = pick;
                    }
-                 } else if constexpr (std::is_same_v<Value,
-                                                     RestartButtonTapped>) {
+                 } else if constexpr (std::is_same_v<Value, RestartButtonTapped>) {
                    stopSolving();
                    startNewGame(state, state.grid, *rng);
                    state.startDate = date->now();
-                 } else if constexpr (std::is_same_v<Value,
-                                                     ShuffleButtonTapped>) {
+                 } else if constexpr (std::is_same_v<Value, ShuffleButtonTapped>) {
                    stopSolving();
                    scramble(state.grid, *rng, state.tiles, state.moveHistory,
                             state.grid * state.grid * 10);
-                 } else if constexpr (std::is_same_v<Value,
-                                                     SoundToggleButtonTapped>) {
-                   state.settings.withMutation([](AppSettings::Settings &s) {
-                     s.isSoundEnabled = !s.isSoundEnabled;
-                   });
+                 } else if constexpr (std::is_same_v<Value, SoundToggleButtonTapped>) {
+                   state.settings.withMutation(
+                       [](AppSettings::Settings &s) { s.isSoundEnabled = !s.isSoundEnabled; });
                    persistSettings();
                  } else if constexpr (std::is_same_v<Value, TileTapped>) {
                    if (state.isSolving) {
@@ -286,14 +264,12 @@ ComposableArchitecture::Feature<State, Action> body() {
                  } else if constexpr (std::is_same_v<Value, TimerTicked>) {
                    if (state.startDate.has_value() && !state.isGameOver) {
                      const double now = date->now();
-                     const int seconds =
-                         static_cast<int>(now - *state.startDate);
+                     const int seconds = static_cast<int>(now - *state.startDate);
                      if (seconds > state.secondsElapsed) {
                        state.secondsElapsed = seconds;
                        if (state.settings.get().isSoundEnabled) {
                          store.addTask([](FeatureStore &, std::stop_token) {
-                           Dependencies::Dependency<AudioPlayerClient::Key>
-                               audioPlayer;
+                           Dependencies::Dependency<AudioPlayerClient::Key> audioPlayer;
                            audioPlayer->play(AudioPlayerClient::Sound::tick);
                          });
                        }
@@ -319,8 +295,7 @@ ComposableArchitecture::Feature<State, Action> body() {
            const bool solved = isSolved(state.tiles, state.grid);
            if (solved && !state.isGameOver) {
              if (state.startDate.has_value()) {
-               state.lastDuration =
-                   static_cast<int>(date->now() - *state.startDate);
+               state.lastDuration = static_cast<int>(date->now() - *state.startDate);
              }
              state.startDate = std::nullopt;
            }

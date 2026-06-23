@@ -79,8 +79,8 @@ int main() {
 
   namespace Config = PuzzleFeature::Config;
   SetConfigFlags(FLAG_VSYNC_HINT);
-  InitWindow(Config::windowWidth(Config::minGrid),
-             Config::windowHeight(Config::minGrid), "N Puzzle");
+  InitWindow(Config::windowWidth(Config::minGrid), Config::windowHeight(Config::minGrid),
+             "N Puzzle");
 
   // Constructing the store runs the feature's onMount (first shuffle + timer,
   // and the leaderboard's initial load), so there is no AppLaunched action.

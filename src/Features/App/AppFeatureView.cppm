@@ -27,17 +27,14 @@ std::vector<AppFeature::Action> collectActions(const AppFeature::State &state) {
   std::vector<AppFeature::Action> actions;
 
   if (IsKeyPressed(KEY_M)) {
-    actions.push_back(
-        AppFeature::Puzzle{PuzzleFeature::SoundToggleButtonTapped{}});
+    actions.push_back(AppFeature::Puzzle{PuzzleFeature::SoundToggleButtonTapped{}});
   }
 
-  for (const auto &puzzleAction :
-       PuzzleFeatureView::collectActions(state.puzzle)) {
+  for (const auto &puzzleAction : PuzzleFeatureView::collectActions(state.puzzle)) {
     actions.push_back(AppFeature::Puzzle{puzzleAction});
   }
 
-  for (const auto &leaderboardAction :
-       LeaderboardFeatureView::collectActions(state.leaderboard)) {
+  for (const auto &leaderboardAction : LeaderboardFeatureView::collectActions(state.leaderboard)) {
     actions.push_back(AppFeature::Leaderboard{leaderboardAction});
   }
 

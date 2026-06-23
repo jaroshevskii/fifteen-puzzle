@@ -18,8 +18,7 @@ template <typename T> class Shared {
 public:
   Shared() = default;
 
-  explicit Shared(PersistenceStrategy<T> strategy)
-      : strategy_(std::move(strategy)) {
+  explicit Shared(PersistenceStrategy<T> strategy) : strategy_(std::move(strategy)) {
     if (auto loaded = strategy_.load()) {
       value_ = std::move(*loaded);
     }

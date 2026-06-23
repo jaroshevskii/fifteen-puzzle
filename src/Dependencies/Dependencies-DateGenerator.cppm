@@ -25,9 +25,7 @@ struct DateGeneratorKey : DependencyKey<DateGeneratorKey, DateGenerator> {
   static DateGenerator liveValue() {
     const auto start = std::chrono::steady_clock::now();
     return DateGenerator{[start] {
-      return std::chrono::duration<double>(std::chrono::steady_clock::now() -
-                                           start)
-          .count();
+      return std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     }};
   }
 

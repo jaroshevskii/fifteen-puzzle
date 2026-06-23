@@ -35,9 +35,7 @@ struct LocalLoaded {
   std::vector<SharedModels::LeaderboardEntry> entries;
 };
 struct RemoteResponse {
-  std::expected<std::vector<SharedModels::LeaderboardEntry>,
-                ApiClient::ApiError>
-      result;
+  std::expected<std::vector<SharedModels::LeaderboardEntry>, ApiClient::ApiError> result;
 };
 struct ScoreSubmitted {
   SharedModels::ScoreSubmission submission;
@@ -46,8 +44,8 @@ struct SubmitResponse {
   std::expected<void, ApiClient::ApiError> result;
 };
 
-using Action = std::variant<Appeared, Refreshed, VisibilityToggled, LocalLoaded,
-                            RemoteResponse, ScoreSubmitted, SubmitResponse>;
+using Action = std::variant<Appeared, Refreshed, VisibilityToggled, LocalLoaded, RemoteResponse,
+                            ScoreSubmitted, SubmitResponse>;
 
 State initialState();
 ComposableArchitecture::Feature<State, Action> body();
@@ -57,7 +55,6 @@ ComposableArchitecture::Feature<State, Action> body();
 // for the view and tests.
 std::vector<SharedModels::LeaderboardEntry>
 mergeEntries(const std::vector<SharedModels::LeaderboardEntry> &local,
-             const std::vector<SharedModels::LeaderboardEntry> &remote,
-             int limit = 10);
+             const std::vector<SharedModels::LeaderboardEntry> &remote, int limit = 10);
 
 } // namespace LeaderboardFeature

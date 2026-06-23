@@ -45,8 +45,7 @@ State initialState(Sharing::Shared<AppSettings::Settings> settings) {
   auto puzzle = PuzzleFeature::initialState(std::move(settings));
   LeaderboardFeature::State leaderboard;
   leaderboard.gridSize = puzzle.grid; // show the current board's leaderboard
-  return State{.puzzle = std::move(puzzle),
-               .leaderboard = std::move(leaderboard)};
+  return State{.puzzle = std::move(puzzle), .leaderboard = std::move(leaderboard)};
 }
 
 // The root feature composes the puzzle and leaderboard scopes, with a small
@@ -56,12 +55,11 @@ State initialState(Sharing::Shared<AppSettings::Settings> settings) {
 ComposableArchitecture::Feature<State, Action> body() {
   using FeatureStore = ComposableArchitecture::Store<State, Action>;
 
-  auto feature = ComposableArchitecture::Scope<
-      State, Action, PuzzleFeature::State, PuzzleFeature::Action>(
-      &State::puzzle,
-      ComposableArchitecture::casePath<Action, Puzzle, PuzzleFeature::Action>(
-          &Puzzle::action),
-      PuzzleFeature::body());
+  auto feature =
+      ComposableArchitecture::Scope<State, Action, PuzzleFeature::State, PuzzleFeature::Action>(
+          &State::puzzle,
+          ComposableArchitecture::casePath<Action, Puzzle, PuzzleFeature::Action>(&Puzzle::action),
+          PuzzleFeature::body());
 
   // Runs after the puzzle scope (order preserved by `add`), so the puzzle state
   // it inspects already reflects the action just processed.
@@ -78,21 +76,18 @@ ComposableArchitecture::Feature<State, Action> body() {
               .duration = *state.puzzle.lastDuration,
               .playedAt = date->now()};
           state.leaderboard.gridSize = state.puzzle.grid;
-          store.send(Leaderboard{
-              LeaderboardFeature::ScoreSubmitted{std::move(submission)}});
+          store.send(Leaderboard{LeaderboardFeature::ScoreSubmitted{std::move(submission)}});
         } else if (!state.puzzle.isGameOver) {
           state.didSubmitCurrentWin = false; // re-arm for the next game
         }
       }));
 
-  feature.add(
-      ComposableArchitecture::Scope<State, Action, LeaderboardFeature::State,
-                                    LeaderboardFeature::Action>(
-          &State::leaderboard,
-          ComposableArchitecture::casePath<Action, Leaderboard,
-                                           LeaderboardFeature::Action>(
-              &Leaderboard::action),
-          LeaderboardFeature::body()));
+  feature.add(ComposableArchitecture::Scope<State, Action, LeaderboardFeature::State,
+                                            LeaderboardFeature::Action>(
+      &State::leaderboard,
+      ComposableArchitecture::casePath<Action, Leaderboard, LeaderboardFeature::Action>(
+          &Leaderboard::action),
+      LeaderboardFeature::body()));
 
   return feature;
 }

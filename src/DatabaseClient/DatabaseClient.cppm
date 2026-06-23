@@ -23,16 +23,12 @@ struct Client {
     return std::expected<void, DbError>{};
   };
   // Persists a completed game.
-  std::function<std::expected<void, DbError>(SharedModels::ScoreSubmission)>
-      saveGame = [](SharedModels::ScoreSubmission) {
-        return std::expected<void, DbError>{};
-      };
+  std::function<std::expected<void, DbError>(SharedModels::ScoreSubmission)> saveGame =
+      [](SharedModels::ScoreSubmission) { return std::expected<void, DbError>{}; };
   // The local top-N scores for a board size, fastest first.
-  std::function<
-      std::expected<std::vector<SharedModels::LeaderboardEntry>, DbError>(int)>
+  std::function<std::expected<std::vector<SharedModels::LeaderboardEntry>, DbError>(int)>
       fetchBestScores = [](int) {
-        return std::expected<std::vector<SharedModels::LeaderboardEntry>,
-                             DbError>{std::in_place};
+        return std::expected<std::vector<SharedModels::LeaderboardEntry>, DbError>{std::in_place};
       };
   // Aggregate stats across all recorded games.
   std::function<std::expected<SharedModels::Stats, DbError>()> fetchStats = [] {

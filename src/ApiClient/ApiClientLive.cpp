@@ -46,8 +46,7 @@ std::string resolveBaseUrl(const std::string &explicitUrl) {
   return std::string(kDefaultBaseUrl);
 }
 
-std::size_t writeBody(char *ptr, std::size_t size, std::size_t nmemb,
-                      void *userdata) {
+std::size_t writeBody(char *ptr, std::size_t size, std::size_t nmemb, void *userdata) {
   auto *out = static_cast<std::string *>(userdata);
   out->append(ptr, size * nmemb);
   return size * nmemb;
@@ -69,8 +68,7 @@ struct Response {
 // One self-contained transfer with its own easy handle (libcurl easy handles
 // are single-thread-only, so per-call handles are the safe pattern). A non-null
 // `postBody` makes it a JSON POST.
-Response perform(const std::string &url, const char *postBody,
-                 std::stop_token &stop) {
+Response perform(const std::string &url, const char *postBody, std::stop_token &stop) {
   Response response;
   CURL *curl = curl_easy_init();
   if (!curl) {
@@ -116,13 +114,11 @@ Client live(std::string explicitUrl) {
 
   return Client{
       .fetchLeaderboard = [global, baseUrl](int gridSize, std::stop_token stop)
-          -> std::expected<std::vector<SharedModels::LeaderboardEntry>,
-                           ApiError> {
+          -> std::expected<std::vector<SharedModels::LeaderboardEntry>, ApiError> {
         if (stop.stop_requested()) {
           return std::unexpected(ApiError::cancelled);
         }
-        const std::string url =
-            std::format("{}/leaderboard?size={}", baseUrl, gridSize);
+        const std::string url = std::format("{}/leaderboard?size={}", baseUrl, gridSize);
         const Response response = perform(url, nullptr, stop);
         if (stop.stop_requested()) {
           return std::unexpected(ApiError::cancelled);
@@ -138,12 +134,12 @@ Client live(std::string explicitUrl) {
           std::vector<SharedModels::LeaderboardEntry> entries;
           entries.reserve(doc.size());
           for (const auto &item : doc) {
-            entries.push_back(SharedModels::LeaderboardEntry{
-                .name = item.at("name").get<std::string>(),
-                .gridSize = gridSize,
-                .moves = item.at("moves").get<int>(),
-                .duration = item.at("duration").get<int>(),
-                .playedAt = item.value("playedAt", 0.0)});
+            entries.push_back(
+                SharedModels::LeaderboardEntry{.name = item.at("name").get<std::string>(),
+                                               .gridSize = gridSize,
+                                               .moves = item.at("moves").get<int>(),
+                                               .duration = item.at("duration").get<int>(),
+                                               .playedAt = item.value("playedAt", 0.0)});
           }
           return entries;
         } catch (const json::exception &) {
@@ -151,8 +147,7 @@ Client live(std::string explicitUrl) {
         }
       },
       .submitScore = [global, baseUrl](SharedModels::ScoreSubmission submission,
-                                       std::stop_token stop)
-          -> std::expected<void, ApiError> {
+                                       std::stop_token stop) -> std::expected<void, ApiError> {
         if (stop.stop_requested()) {
           return std::unexpected(ApiError::cancelled);
         }

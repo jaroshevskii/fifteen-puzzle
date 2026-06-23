@@ -25,8 +25,7 @@ std::vector<std::string> solvedBoard(int n) {
 }
 
 int emptyIndex(const std::vector<std::string> &t) {
-  return static_cast<int>(
-      std::ranges::distance(t.begin(), std::ranges::find(t, std::string{})));
+  return static_cast<int>(std::ranges::distance(t.begin(), std::ranges::find(t, std::string{})));
 }
 
 struct Scramble {
@@ -49,8 +48,7 @@ Scramble scramble(int n, int moves, std::uint64_t seed) {
       nb.push_back(empty - 1);
     if (c < n - 1)
       nb.push_back(empty + 1);
-    const int pick =
-        nb[std::uniform_int_distribution<std::size_t>(0, nb.size() - 1)(rng)];
+    const int pick = nb[std::uniform_int_distribution<std::size_t>(0, nb.size() - 1)(rng)];
     std::swap(s.tiles[empty], s.tiles[pick]);
     s.history.push_back(pick);
     empty = pick;
@@ -58,8 +56,7 @@ Scramble scramble(int n, int moves, std::uint64_t seed) {
   return s;
 }
 
-void applyMoves(std::vector<std::string> &tiles,
-                const std::vector<int> &moves) {
+void applyMoves(std::vector<std::string> &tiles, const std::vector<int> &moves) {
   for (const int pos : moves) {
     std::swap(tiles[pos], tiles[emptyIndex(tiles)]);
   }
@@ -73,19 +70,15 @@ void testPlansAllSizes() {
       auto s = scramble(n, n * n * 10, seed);
       auto plan = client.plan(s.history, n, std::stop_token{});
       if (!plan.has_value()) {
-        expect(false,
-               std::format("n={} seed={}: planner returned an error", n, seed));
+        expect(false, std::format("n={} seed={}: planner returned an error", n, seed));
         continue;
       }
-      longest =
-          std::max<long long>(longest, static_cast<long long>(plan->size()));
+      longest = std::max<long long>(longest, static_cast<long long>(plan->size()));
       applyMoves(s.tiles, *plan);
-      expect(s.tiles == solvedBoard(n),
-             std::format("n={} seed={}: did not reach goal", n, seed));
+      expect(s.tiles == solvedBoard(n), std::format("n={} seed={}: did not reach goal", n, seed));
     }
   }
-  std::println("planned 4..13 x 50 scrambles; longest plan = {} moves",
-               longest);
+  std::println("planned 4..13 x 50 scrambles; longest plan = {} moves", longest);
 }
 
 } // namespace

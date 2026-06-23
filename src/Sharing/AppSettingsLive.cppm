@@ -13,7 +13,6 @@ import AppSettings;
 // C++ header in a reachable GMF would otherwise cause.
 export namespace AppSettings {
 
-Sharing::PersistenceStrategy<Settings>
-settingsFileStorage(std::filesystem::path path);
+Sharing::PersistenceStrategy<Settings> settingsFileStorage(std::filesystem::path path);
 
 } // namespace AppSettings

@@ -61,8 +61,7 @@ Client live(std::string dbPath) {
         try {
           auto &db = *connection->database;
           const auto rows = db.run("PRAGMA user_version");
-          const std::int64_t version =
-              rows.empty() ? 0 : std::get<std::int64_t>(rows[0][0]);
+          const std::int64_t version = rows.empty() ? 0 : std::get<std::int64_t>(rows[0][0]);
           if (version < 1) {
             db.execute("CREATE TABLE IF NOT EXISTS games ("
                        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -80,29 +79,26 @@ Client live(std::string dbPath) {
           return std::unexpected(DbError::queryFailed);
         }
       },
-      .saveGame = [connection](SharedModels::ScoreSubmission s)
-          -> std::expected<void, DbError> {
+      .saveGame = [connection](SharedModels::ScoreSubmission s) -> std::expected<void, DbError> {
         std::scoped_lock lock(connection->mutex);
         if (!connection->database) {
           return std::unexpected(DbError::openFailed);
         }
         try {
-          connection->database->run(
-              "INSERT INTO games (name, grid_size, moves, duration_seconds, "
-              "played_at) VALUES (?, ?, ?, ?, ?)",
-              {Sqlite::Datatype{s.name},
-               Sqlite::Datatype{static_cast<std::int64_t>(s.gridSize)},
-               Sqlite::Datatype{static_cast<std::int64_t>(s.moves)},
-               Sqlite::Datatype{static_cast<std::int64_t>(s.duration)},
-               Sqlite::Datatype{s.playedAt}});
+          connection->database->run("INSERT INTO games (name, grid_size, moves, duration_seconds, "
+                                    "played_at) VALUES (?, ?, ?, ?, ?)",
+                                    {Sqlite::Datatype{s.name},
+                                     Sqlite::Datatype{static_cast<std::int64_t>(s.gridSize)},
+                                     Sqlite::Datatype{static_cast<std::int64_t>(s.moves)},
+                                     Sqlite::Datatype{static_cast<std::int64_t>(s.duration)},
+                                     Sqlite::Datatype{s.playedAt}});
           return {};
         } catch (...) {
           return std::unexpected(DbError::queryFailed);
         }
       },
       .fetchBestScores = [connection](int gridSize)
-          -> std::expected<std::vector<SharedModels::LeaderboardEntry>,
-                           DbError> {
+          -> std::expected<std::vector<SharedModels::LeaderboardEntry>, DbError> {
         std::scoped_lock lock(connection->mutex);
         if (!connection->database) {
           return std::unexpected(DbError::openFailed);
@@ -123,24 +119,20 @@ Client live(std::string dbPath) {
           return std::unexpected(DbError::queryFailed);
         }
       },
-      .fetchStats =
-          [connection]() -> std::expected<SharedModels::Stats, DbError> {
+      .fetchStats = [connection]() -> std::expected<SharedModels::Stats, DbError> {
         std::scoped_lock lock(connection->mutex);
         if (!connection->database) {
           return std::unexpected(DbError::openFailed);
         }
         try {
-          const auto rows = connection->database->run(
-              "SELECT COUNT(*), COALESCE(MIN(duration_seconds), 0), "
-              "COALESCE(SUM(duration_seconds), 0) FROM games");
+          const auto rows =
+              connection->database->run("SELECT COUNT(*), COALESCE(MIN(duration_seconds), 0), "
+                                        "COALESCE(SUM(duration_seconds), 0) FROM games");
           SharedModels::Stats stats;
           if (!rows.empty()) {
-            stats.gamesPlayed =
-                static_cast<int>(std::get<std::int64_t>(rows[0][0]));
-            stats.bestDurationSeconds =
-                static_cast<int>(std::get<std::int64_t>(rows[0][1]));
-            stats.totalSeconds =
-                static_cast<double>(std::get<std::int64_t>(rows[0][2]));
+            stats.gamesPlayed = static_cast<int>(std::get<std::int64_t>(rows[0][0]));
+            stats.bestDurationSeconds = static_cast<int>(std::get<std::int64_t>(rows[0][1]));
+            stats.totalSeconds = static_cast<double>(std::get<std::int64_t>(rows[0][2]));
           }
           return stats;
         } catch (...) {

@@ -22,9 +22,8 @@ template <typename T> struct PersistenceStrategy {
 // same strategy observe each other's saves — handy for deterministic tests.
 template <typename T> PersistenceStrategy<T> inMemory(T initial = {}) {
   auto cell = std::make_shared<std::optional<T>>(std::move(initial));
-  return PersistenceStrategy<T>{
-      .load = [cell] { return *cell; },
-      .save = [cell](const T &value) { *cell = value; }};
+  return PersistenceStrategy<T>{.load = [cell] { return *cell; },
+                                .save = [cell](const T &value) { *cell = value; }};
 }
 
 // A generic file-backed strategy: all the file I/O (read, atomic write via
@@ -35,10 +34,9 @@ template <typename T> PersistenceStrategy<T> inMemory(T initial = {}) {
 // where its headers stay private. `decode` returns nullopt on a parse failure
 // (a corrupt file reads as "absent", so callers fall back to a default).
 template <typename T>
-PersistenceStrategy<T>
-fileStorage(std::filesystem::path path,
-            std::function<std::string(const T &)> encode,
-            std::function<std::optional<T>(std::string_view)> decode) {
+PersistenceStrategy<T> fileStorage(std::filesystem::path path,
+                                   std::function<std::string(const T &)> encode,
+                                   std::function<std::optional<T>(std::string_view)> decode) {
   return PersistenceStrategy<T>{
       .load = [path, decode = std::move(decode)]() -> std::optional<T> {
         std::error_code ec;
@@ -62,8 +60,7 @@ fileStorage(std::filesystem::path path,
             const std::string text = encode(value);
             // Write to a temp file then rename, so a crash mid-write can't
             // leave a torn file (the file-storage analog of a transaction).
-            const std::filesystem::path tmp =
-                std::filesystem::path(path).concat(".tmp");
+            const std::filesystem::path tmp = std::filesystem::path(path).concat(".tmp");
             {
               std::ofstream out(tmp, std::ios::binary | std::ios::trunc);
               if (!out) {

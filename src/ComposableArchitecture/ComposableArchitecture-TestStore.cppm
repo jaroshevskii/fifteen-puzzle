@@ -10,13 +10,11 @@ import :Feature;
 // queued for `receive`. Each `send`/`receive` asserts the resulting state.
 export namespace ComposableArchitecture {
 
-template <typename State, typename Action>
-class TestStore final : public Store<State, Action> {
+template <typename State, typename Action> class TestStore final : public Store<State, Action> {
 public:
   template <typename FeatureFactory>
     requires std::invocable<FeatureFactory> &&
-                 std::same_as<std::invoke_result_t<FeatureFactory>,
-                              Feature<State, Action>>
+                 std::same_as<std::invoke_result_t<FeatureFactory>, Feature<State, Action>>
   TestStore(State initial, FeatureFactory makeFeature)
       : state_(std::move(initial)), feature_(makeFeature()) {
     feature_.mount(state_, *this); // onMount runs once, as in the live store
@@ -24,8 +22,7 @@ public:
 
   ~TestStore() override {
     if (!pending_.empty()) {
-      reportFailure("test store deallocated with " +
-                    std::to_string(pending_.size()) +
+      reportFailure("test store deallocated with " + std::to_string(pending_.size()) +
                     " action(s) left unreceived");
     }
   }
@@ -34,12 +31,9 @@ public:
   const State &state() const override { return state_; }
   State snapshot() override { return state_; }
   void send(Action action) override { pending_.push_back(std::move(action)); }
-  void modify(std::function<void(State &)> mutation) override {
-    mutation(state_);
-  }
-  void
-  addTask(std::function<void(Store<State, Action> &, std::stop_token)> work,
-          std::string = {}) override {
+  void modify(std::function<void(State &)> mutation) override { mutation(state_); }
+  void addTask(std::function<void(Store<State, Action> &, std::stop_token)> work,
+               std::string = {}) override {
     std::stop_source source;
     work(*this, source.get_token()); // inline, deterministic
   }
@@ -73,8 +67,7 @@ private:
       assert(expected);
     }
     if (!(expected == state_)) {
-      reportFailure(std::string("state did not match expectation after ") +
-                    std::string(step));
+      reportFailure(std::string("state did not match expectation after ") + std::string(step));
     }
   }
 

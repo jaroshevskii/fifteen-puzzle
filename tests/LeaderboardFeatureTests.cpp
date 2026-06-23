@@ -31,8 +31,7 @@ void expect(bool ok, std::string_view msg) {
 DatabaseClient::Client stubDatabase(std::vector<LeaderboardEntry> local) {
   DatabaseClient::Client client;
   client.fetchBestScores = [local](int) {
-    return std::expected<std::vector<LeaderboardEntry>,
-                         DatabaseClient::DbError>{local};
+    return std::expected<std::vector<LeaderboardEntry>, DatabaseClient::DbError>{local};
   };
   return client;
 }
@@ -78,8 +77,7 @@ void testMergesLocalAndRemote() {
 
         expect(!store.failed(), "merge: state transitions match");
         expect(store.state().merged.size() == 2, "merge: both entries present");
-        expect(!store.state().merged.empty() &&
-                   store.state().merged.front().name == "Bob",
+        expect(!store.state().merged.empty() && store.state().merged.front().name == "Bob",
                "merge: fastest (Bob, 30s) ranked first");
         return 0;
       });
@@ -114,16 +112,14 @@ void testOfflineFallsBackToLocal() {
         expect(!store.failed(), "offline: state transitions match");
         expect(store.state().remoteError == ApiClient::ApiError::offline,
                "offline: error surfaced");
-        expect(store.state().merged.size() == 2,
-               "offline: still shows the two local scores");
+        expect(store.state().merged.size() == 2, "offline: still shows the two local scores");
         return 0;
       });
 }
 
 void testScoreSubmittedSavesLocally() {
   auto recorder = std::make_shared<std::vector<ScoreSubmission>>();
-  const ScoreSubmission submission{
-      .name = "Ada", .gridSize = 4, .moves = 50, .duration = 25};
+  const ScoreSubmission submission{.name = "Ada", .gridSize = 4, .moves = 50, .duration = 25};
 
   withDependencies(
       [&](DependencyValues &values) {
@@ -141,12 +137,8 @@ void testScoreSubmittedSavesLocally() {
             LeaderboardFeature::initialState(), LeaderboardFeature::body);
 
         // Drain onMount's initial load (both empty).
-        store.receive([](LeaderboardFeature::State &state) {
-          state.isLoadingLocal = false;
-        });
-        store.receive([](LeaderboardFeature::State &state) {
-          state.isLoadingRemote = false;
-        });
+        store.receive([](LeaderboardFeature::State &state) { state.isLoadingLocal = false; });
+        store.receive([](LeaderboardFeature::State &state) { state.isLoadingRemote = false; });
 
         // Submitting persists locally (no direct state change) then refreshes.
         store.send(LeaderboardFeature::ScoreSubmitted{submission}, {});
@@ -155,9 +147,8 @@ void testScoreSubmittedSavesLocally() {
           state.isLoadingRemote = true;
         });                // Refreshed
         store.receive({}); // SubmitResponse (success → no change)
-        store.receive([](LeaderboardFeature::State &state) {
-          state.isLoadingLocal = false;
-        }); // LocalLoaded
+        store.receive(
+            [](LeaderboardFeature::State &state) { state.isLoadingLocal = false; }); // LocalLoaded
         store.receive([](LeaderboardFeature::State &state) {
           state.isLoadingRemote = false;
         }); // RemoteResponse

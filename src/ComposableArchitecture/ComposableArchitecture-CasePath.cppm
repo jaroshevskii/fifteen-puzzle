@@ -17,18 +17,17 @@ template <typename Whole, typename Part> struct CasePath {
 // wraps a `Part` in a single member.
 template <typename Whole, typename Case, typename Part>
 CasePath<Whole, Part> casePath(Part Case::*member) {
-  return CasePath<Whole, Part>{
-      [member](const Whole &whole) -> std::optional<Part> {
-        if (const auto *wrapped = std::get_if<Case>(&whole)) {
-          return wrapped->*member;
-        }
-        return std::nullopt;
-      },
-      [member](Part part) -> Whole {
-        Case wrapped{};
-        wrapped.*member = std::move(part);
-        return Whole{std::move(wrapped)};
-      }};
+  return CasePath<Whole, Part>{[member](const Whole &whole) -> std::optional<Part> {
+                                 if (const auto *wrapped = std::get_if<Case>(&whole)) {
+                                   return wrapped->*member;
+                                 }
+                                 return std::nullopt;
+                               },
+                               [member](Part part) -> Whole {
+                                 Case wrapped{};
+                                 wrapped.*member = std::move(part);
+                                 return Whole{std::move(wrapped)};
+                               }};
 }
 
 } // namespace ComposableArchitecture

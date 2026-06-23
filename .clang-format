@@ -1,2 +1,3 @@
-# LLVM house style (the clang-format default).
+# LLVM house style, with a 100-column line limit (the default is 80).
 BasedOnStyle: LLVM
+ColumnLimit: 100

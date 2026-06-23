@@ -50,15 +50,13 @@ public:
     constexpr float beepDuration = 0.08f;
     constexpr float beepFrequency = 1200.0f;
 
-    const int sampleCount =
-        static_cast<int>(beepDuration * static_cast<float>(sampleRate));
+    const int sampleCount = static_cast<int>(beepDuration * static_cast<float>(sampleRate));
     std::vector<ALshort> samples(sampleCount);
 
     for (int index = 0; index < sampleCount; ++index) {
-      const double t =
-          static_cast<double>(index) / static_cast<double>(sampleRate);
-      double value = std::sin(2.0 * std::numbers::pi_v<double> *
-                              static_cast<double>(beepFrequency) * t);
+      const double t = static_cast<double>(index) / static_cast<double>(sampleRate);
+      double value =
+          std::sin(2.0 * std::numbers::pi_v<double> * static_cast<double>(beepFrequency) * t);
       value *= std::exp(-t / (static_cast<double>(beepDuration) * 0.25));
       samples[index] = static_cast<ALshort>(value * 22000.0);
     }

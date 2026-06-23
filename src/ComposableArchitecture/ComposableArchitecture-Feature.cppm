@@ -12,8 +12,7 @@ export namespace ComposableArchitecture {
 
 template <typename State, typename Action> class Feature {
 public:
-  using Body =
-      std::function<void(State &, const Action &, Store<State, Action> &)>;
+  using Body = std::function<void(State &, const Action &, Store<State, Action> &)>;
   using Hook = std::function<void(State &, Store<State, Action> &)>;
 
   Feature() = default;
@@ -42,8 +41,7 @@ public:
   void addBody(Body body) { bodies_.push_back(std::move(body)); }
 
   // Invoked by the runtime / scope.
-  void update(State &state, const Action &action,
-              Store<State, Action> &store) const {
+  void update(State &state, const Action &action, Store<State, Action> &store) const {
     for (const auto &body : bodies_)
       body(state, action, store);
   }
