@@ -36,7 +36,7 @@ jobs:
       # MSVC builds at C++23: CMake 4.2 supports neither the C++26 dialect nor
       # `import std` at C++26 for MSVC.
       - name: Cache vcpkg binary packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}\vcpkg-bincache
           key: vcpkg-x64-windows-${{ github.run_id }}
