@@ -9,6 +9,8 @@ import SolverClient;
 import SolverClientLive;
 import ApiClient;
 import ApiClientLive;
+import MultiplayerClient;
+import MultiplayerClientLive;
 import DatabaseClient;
 import DatabaseClientLive;
 import Sharing;
@@ -69,6 +71,9 @@ int main() {
     values.set<SolverClient::Key>(SolverClient::live());
     // Reads FIFTEEN_API_BASE_URL; unreachable → calls degrade to offline.
     values.set<ApiClient::Key>(ApiClient::live());
+    // Reads FIFTEEN_MP_HOST / FIFTEEN_MP_PORT; unreachable → the multiplayer
+    // screen reports the failure and offers a retry.
+    values.set<MultiplayerClient::Key>(MultiplayerClient::live());
 
     auto database = DatabaseClient::live((dataDir / "games.sqlite3").string());
     (void)database.migrate(); // ensure the schema exists before any query

@@ -1,6 +1,10 @@
 {
   "version": 6,
-  "cmakeMinimumRequired": { "major": 4, "minor": 0, "patch": 0 },
+  "cmakeMinimumRequired": {
+    "major": 4,
+    "minor": 0,
+    "patch": 0
+  },
   "configurePresets": [
     {
       "name": "base",
@@ -10,7 +14,7 @@
     },
     {
       "name": "macos",
-      "displayName": "macOS — Homebrew LLVM (C++26 modules, import std)",
+      "displayName": "macOS \u2014 Homebrew LLVM (C++26 modules, import std)",
       "description": "C++ modules and `import std;` require upstream LLVM; Apple Clang supports neither.",
       "inherits": "base",
       "cacheVariables": {
@@ -23,7 +27,7 @@
     },
     {
       "name": "linux",
-      "displayName": "Linux — LLVM/libc++ (C++26 modules, import std)",
+      "displayName": "Linux \u2014 LLVM/libc++ (C++26 modules, import std)",
       "description": "Set CC/CXX to a recent clang and (if needed) CMAKE_CXX_STDLIB_MODULES_JSON via -D.",
       "inherits": "base",
       "cacheVariables": {
@@ -33,7 +37,7 @@
     },
     {
       "name": "windows",
-      "displayName": "Windows — MSVC (C++26 modules, import std)",
+      "displayName": "Windows \u2014 MSVC (C++26 modules, import std)",
       "description": "Run from a Visual Studio developer environment so cl/Ninja are on PATH.",
       "inherits": "base",
       "cacheVariables": {
@@ -47,27 +51,133 @@
     }
   ],
   "buildPresets": [
-    { "name": "macos", "configurePreset": "macos" },
-    { "name": "linux", "configurePreset": "linux" },
-    { "name": "windows", "configurePreset": "windows" },
-    { "name": "default", "configurePreset": "default" },
-    { "name": "tests", "configurePreset": "macos", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests", "NavigationTests", "SavedGameTests", "SettingsFeatureTests", "AppFeatureTests"] },
-    { "name": "tests-linux", "configurePreset": "linux", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests", "NavigationTests", "SavedGameTests", "SettingsFeatureTests", "AppFeatureTests"] },
-    { "name": "tests-windows", "configurePreset": "windows", "targets": ["PuzzleFeatureTests", "SolverClientTests", "SharingTests", "DatabaseClientTests", "LeaderboardFeatureTests", "NavigationTests", "SavedGameTests", "SettingsFeatureTests", "AppFeatureTests"] }
+    {
+      "name": "macos",
+      "configurePreset": "macos"
+    },
+    {
+      "name": "linux",
+      "configurePreset": "linux"
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows"
+    },
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "tests",
+      "configurePreset": "macos",
+      "targets": [
+        "PuzzleFeatureTests",
+        "SolverClientTests",
+        "SharingTests",
+        "DatabaseClientTests",
+        "LeaderboardFeatureTests",
+        "NavigationTests",
+        "SavedGameTests",
+        "SettingsFeatureTests",
+        "AppFeatureTests",
+        "ServerRouterTests",
+        "SiteMiddlewareTests",
+        "GameServerTests",
+        "MultiplayerFeatureTests"
+      ]
+    },
+    {
+      "name": "tests-linux",
+      "configurePreset": "linux",
+      "targets": [
+        "PuzzleFeatureTests",
+        "SolverClientTests",
+        "SharingTests",
+        "DatabaseClientTests",
+        "LeaderboardFeatureTests",
+        "NavigationTests",
+        "SavedGameTests",
+        "SettingsFeatureTests",
+        "AppFeatureTests",
+        "ServerRouterTests",
+        "SiteMiddlewareTests",
+        "GameServerTests",
+        "MultiplayerFeatureTests"
+      ]
+    },
+    {
+      "name": "tests-windows",
+      "configurePreset": "windows",
+      "targets": [
+        "PuzzleFeatureTests",
+        "SolverClientTests",
+        "SharingTests",
+        "DatabaseClientTests",
+        "LeaderboardFeatureTests",
+        "NavigationTests",
+        "SavedGameTests",
+        "SettingsFeatureTests",
+        "AppFeatureTests",
+        "ServerRouterTests",
+        "SiteMiddlewareTests",
+        "GameServerTests",
+        "MultiplayerFeatureTests"
+      ]
+    },
+    {
+      "name": "server",
+      "configurePreset": "macos",
+      "targets": [
+        "FifteenServer"
+      ]
+    }
   ],
   "testPresets": [
-    { "name": "macos", "configurePreset": "macos", "output": { "outputOnFailure": true } },
-    { "name": "linux", "configurePreset": "linux", "output": { "outputOnFailure": true } },
-    { "name": "windows", "configurePreset": "windows", "output": { "outputOnFailure": true } },
-    { "name": "default", "configurePreset": "default", "output": { "outputOnFailure": true } }
+    {
+      "name": "macos",
+      "configurePreset": "macos",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "linux",
+      "configurePreset": "linux",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
   ],
   "workflowPresets": [
     {
       "name": "test",
       "steps": [
-        { "type": "configure", "name": "macos" },
-        { "type": "build", "name": "tests" },
-        { "type": "test", "name": "macos" }
+        {
+          "type": "configure",
+          "name": "macos"
+        },
+        {
+          "type": "build",
+          "name": "tests"
+        },
+        {
+          "type": "test",
+          "name": "macos"
+        }
       ]
     }
   ]

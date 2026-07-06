@@ -10,11 +10,12 @@
 		AA00000000000000000010 /* CMakeLists.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = CMakeLists.txt; sourceTree = "<group>"; };
 		AA00000000000000000011 /* CMakePresets.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = CMakePresets.json; sourceTree = "<group>"; };
 		AA00000000000000000012 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		AA00000000000000000013 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = "<group>"; };
-		AA00000000000000000014 /* src */ = {isa = PBXFileReference; lastKnownFileType = folder; path = src; sourceTree = "<group>"; };
-		AA00000000000000000015 /* tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = tests; sourceTree = "<group>"; };
+		AA00000000000000000013 /* main.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = main.cpp; path = App/main.cpp; sourceTree = "<group>"; };
+		AA00000000000000000014 /* Sources */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Sources; sourceTree = "<group>"; };
+		AA00000000000000000015 /* Tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Tests; sourceTree = "<group>"; };
 		AA00000000000000000016 /* scripts */ = {isa = PBXFileReference; lastKnownFileType = folder; path = scripts; sourceTree = "<group>"; };
 		AA00000000000000000017 /* .github */ = {isa = PBXFileReference; lastKnownFileType = folder; path = .github; sourceTree = "<group>"; };
+		AA00000000000000000018 /* Bootstrap */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Bootstrap; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -22,8 +23,9 @@
 			isa = PBXGroup;
 			children = (
 				AA00000000000000000013 /* main.cpp */,
-				AA00000000000000000014 /* src */,
-				AA00000000000000000015 /* tests */,
+				AA00000000000000000014 /* Sources */,
+				AA00000000000000000015 /* Tests */,
+				AA00000000000000000018 /* Bootstrap */,
 				AA00000000000000000010 /* CMakeLists.txt */,
 				AA00000000000000000011 /* CMakePresets.json */,
 				AA00000000000000000016 /* scripts */,

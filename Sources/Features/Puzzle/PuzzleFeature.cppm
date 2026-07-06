@@ -2,6 +2,7 @@ export module PuzzleFeature;
 
 import std;
 import ComposableArchitecture;
+import PuzzleCore;
 import SolverClient;
 import Sharing;
 import AppSettings;
@@ -13,8 +14,8 @@ export namespace PuzzleFeature {
 // (3x the base 4x4 board); beyond that the tiles shrink to fit. Sizes are pure
 // functions of the grid so the view and the window setup agree.
 namespace Config {
-constexpr int minGrid = 4;  // level 0 — the classic 15-puzzle
-constexpr int maxGrid = 13; // level 9
+constexpr int minGrid = PuzzleCore::minGrid; // level 0 — the classic 15-puzzle
+constexpr int maxGrid = PuzzleCore::maxGrid; // level 9
 constexpr float baseTileSize = 94.0f;
 constexpr float uiHeight = 50.0f;
 constexpr float maxBoardPixels = 3.0f * baseTileSize * minGrid; // window caps at 3x the base board

@@ -4,6 +4,7 @@ import std;
 import ComposableArchitecture;
 import PuzzleFeature;
 import LeaderboardFeature;
+import MultiplayerFeature;
 import SettingsFeature;
 import SavedGame;
 import Sharing;
@@ -31,9 +32,11 @@ struct GameOverScreen {
   bool operator==(const GameOverScreen &) const = default;
 };
 
-// Settings and Leaderboard carry real sub-feature state, scoped via `ifCaseLet`.
-using Destination = std::variant<IntroScreen, MainMenuScreen, PausedScreen, GameOverScreen,
-                                 SettingsFeature::State, LeaderboardFeature::State>;
+// Settings, Leaderboard and Multiplayer carry real sub-feature state, scoped
+// via `ifCaseLet`.
+using Destination =
+    std::variant<IntroScreen, MainMenuScreen, PausedScreen, GameOverScreen, SettingsFeature::State,
+                 LeaderboardFeature::State, MultiplayerFeature::State>;
 
 struct State {
   PuzzleFeature::State puzzle;                  // always present
@@ -57,6 +60,9 @@ struct Leaderboard {
 struct Settings {
   SettingsFeature::Action action;
 };
+struct Multiplayer {
+  MultiplayerFeature::Action action;
+};
 
 // Navigation actions.
 struct ShowMenu {};
@@ -66,13 +72,14 @@ struct PauseTapped {};
 struct Resume {};
 struct OpenSettings {};
 struct OpenLeaderboard {};
+struct OpenMultiplayer {};
 struct Dismiss {};
 struct PlayAgain {};
 struct QuitTapped {};
 
-using Action =
-    std::variant<Puzzle, Leaderboard, Settings, ShowMenu, StartNewGame, ContinueGame, PauseTapped,
-                 Resume, OpenSettings, OpenLeaderboard, Dismiss, PlayAgain, QuitTapped>;
+using Action = std::variant<Puzzle, Leaderboard, Settings, Multiplayer, ShowMenu, StartNewGame,
+                            ContinueGame, PauseTapped, Resume, OpenSettings, OpenLeaderboard,
+                            OpenMultiplayer, Dismiss, PlayAgain, QuitTapped>;
 
 // Builds the initial state. If a saved game exists it is restored into the
 // puzzle; the launch screen is the game itself when `settings.autoResume` is on,

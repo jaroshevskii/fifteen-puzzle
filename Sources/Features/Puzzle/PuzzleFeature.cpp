@@ -3,6 +3,7 @@ module PuzzleFeature; // implementation unit
 import std;
 import ComposableArchitecture;
 import AudioPlayerClient;
+import PuzzleCore;
 import SolverClient;
 import Sharing;
 import AppSettings;
@@ -11,78 +12,17 @@ namespace PuzzleFeature {
 
 namespace {
 
+// The board rules (solved layout, adjacency, scramble, slide) live in the
+// shared PuzzleCore module, so the server can re-play multiplayer boards with
+// the exact same logic (the PuzzleGen pattern from isowords).
+using PuzzleCore::isSolved;
+using PuzzleCore::neighbors;
+using PuzzleCore::scramble;
+using PuzzleCore::solvedTiles;
+
 using Dependencies::RandomNumberGenerator;
 
 constexpr std::string_view kSolverCancelId = "auto-solve";
-
-int rowOf(int index, int grid) { return index / grid; }
-int colOf(int index, int grid) { return index % grid; }
-
-bool isAdjacent(int lhs, int rhs, int grid) {
-  const int r1 = rowOf(lhs, grid), c1 = colOf(lhs, grid);
-  const int r2 = rowOf(rhs, grid), c2 = colOf(rhs, grid);
-  return (r1 == r2 && std::abs(c1 - c2) == 1) || (c1 == c2 && std::abs(r1 - r2) == 1);
-}
-
-std::vector<std::string> solvedTiles(int grid) {
-  const int count = grid * grid;
-  std::vector<std::string> tiles;
-  tiles.reserve(count);
-  for (int i = 1; i < count; ++i) {
-    tiles.push_back(std::to_string(i));
-  }
-  tiles.emplace_back(); // empty cell last
-  return tiles;
-}
-
-bool isSolved(const std::vector<std::string> &tiles, int grid) {
-  const int count = grid * grid;
-  for (int i = 0; i < count - 1; ++i) {
-    if (tiles[i] != std::to_string(i + 1)) {
-      return false;
-    }
-  }
-  return tiles[count - 1].empty();
-}
-
-std::vector<int> neighbors(int pos, int grid) {
-  const int r = rowOf(pos, grid), c = colOf(pos, grid);
-  std::vector<int> result;
-  if (r > 0)
-    result.push_back(pos - grid);
-  if (r < grid - 1)
-    result.push_back(pos + grid);
-  if (c > 0)
-    result.push_back(pos - 1);
-  if (c < grid - 1)
-    result.push_back(pos + 1);
-  return result;
-}
-
-// Builds a board by applying `count` random legal slides from solved, recording
-// the move history (so the board is always solvable and reversible).
-void scramble(int grid, RandomNumberGenerator &rng, std::vector<std::string> &tiles,
-              std::vector<int> &history, int count) {
-  tiles = solvedTiles(grid);
-  history.clear();
-  int empty = grid * grid - 1;
-  int previous = -1;
-  for (int i = 0; i < count; ++i) {
-    auto options = neighbors(empty, grid);
-    std::erase(options, previous); // avoid immediately undoing the last slide
-    const int pick =
-        options[std::uniform_int_distribution<std::size_t>(0, options.size() - 1)(rng)];
-    std::swap(tiles[empty], tiles[pick]);
-    history.push_back(pick);
-    previous = empty;
-    empty = pick;
-  }
-  if (isSolved(tiles, grid) && !neighbors(empty, grid).empty()) {
-    const int pick = neighbors(empty, grid).front();
-    std::swap(tiles[empty], tiles[pick]);
-    history.push_back(pick);
-  }
-}
 
 void startNewGame(State &state, int grid, RandomNumberGenerator &rng) {
   state.grid = grid;
@@ -96,14 +36,7 @@ void startNewGame(State &state, int grid, RandomNumberGenerator &rng) {
 // Slides the tile at `pos` into the empty cell (if adjacent), recording the
 // move.
 bool applySlide(State &state, int pos) {
-  const auto empty = emptyIndex(state);
-  if (empty.has_value() && pos >= 0 && pos < static_cast<int>(state.tiles.size()) &&
-      isAdjacent(pos, *empty, state.grid)) {
-    std::swap(state.tiles[pos], state.tiles[*empty]);
-    state.moveHistory.push_back(pos);
-    return true;
-  }
-  return false;
+  return PuzzleCore::slide(state.tiles, state.moveHistory, state.grid, pos);
 }
 
 } // namespace
@@ -237,8 +170,7 @@ ComposableArchitecture::Feature<State, Action> body() {
                    int empty = state.grid * state.grid - 1;
                    for (int step = 0; step < 2; ++step) {
                      auto options = neighbors(empty, state.grid);
-                     const int pick = options[std::uniform_int_distribution<std::size_t>(
-                         0, options.size() - 1)(*rng)];
+                     const int pick = options[PuzzleCore::nextIndex(*rng, options.size())];
                      std::swap(state.tiles[empty], state.tiles[pick]);
                      state.moveHistory.push_back(pick);
                      empty = pick;

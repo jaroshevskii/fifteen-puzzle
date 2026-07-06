@@ -10,6 +10,8 @@ import PuzzleFeature;
 import PuzzleFeatureView;
 import LeaderboardFeature;
 import LeaderboardFeatureView;
+import MultiplayerFeature;
+import MultiplayerFeatureView;
 import SettingsFeature;
 import SettingsFeatureView;
 import MenuView;
@@ -37,7 +39,10 @@ int gameOverSelected = 0;
 std::vector<MenuView::Button> mainMenuButtons(const AppFeature::State &state) {
   return {MenuView::Button{"New Game"},
           MenuView::Button{"Continue", AppFeature::hasResumableGame(state)},
-          MenuView::Button{"Settings"}, MenuView::Button{"Leaderboard"}, MenuView::Button{"Quit"}};
+          MenuView::Button{"Multiplayer"},
+          MenuView::Button{"Settings"},
+          MenuView::Button{"Leaderboard"},
+          MenuView::Button{"Quit"}};
 }
 
 const std::vector<MenuView::Button> kPausedButtons{
@@ -182,8 +187,8 @@ std::vector<AppFeature::Action> collectActions(const AppFeature::State &state) {
         } else if constexpr (std::is_same_v<S, AppFeature::MainMenuScreen>) {
           runMenu(mainMenuButtons(state),
                   {AppFeature::StartNewGame{}, AppFeature::ContinueGame{},
-                   AppFeature::OpenSettings{}, AppFeature::OpenLeaderboard{},
-                   AppFeature::QuitTapped{}},
+                   AppFeature::OpenMultiplayer{}, AppFeature::OpenSettings{},
+                   AppFeature::OpenLeaderboard{}, AppFeature::QuitTapped{}},
                   menuSelected, actions);
         } else if constexpr (std::is_same_v<S, AppFeature::PausedScreen>) {
           runMenu(kPausedButtons,
@@ -208,6 +213,13 @@ std::vector<AppFeature::Action> collectActions(const AppFeature::State &state) {
           }
         } else if constexpr (std::is_same_v<S, LeaderboardFeature::State>) {
           if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_L)) {
+            actions.push_back(AppFeature::Dismiss{});
+          }
+        } else if constexpr (std::is_same_v<S, MultiplayerFeature::State>) {
+          for (const auto &multiplayerAction : MultiplayerFeatureView::collectActions(screen)) {
+            actions.push_back(AppFeature::Multiplayer{multiplayerAction});
+          }
+          if (IsKeyPressed(KEY_ESCAPE)) {
             actions.push_back(AppFeature::Dismiss{});
           }
         }
@@ -242,6 +254,8 @@ void draw(const AppFeature::State &state) {
           SettingsFeatureView::draw(screen);
         } else if constexpr (std::is_same_v<S, LeaderboardFeature::State>) {
           LeaderboardFeatureView::draw(screen);
+        } else if constexpr (std::is_same_v<S, MultiplayerFeature::State>) {
+          MultiplayerFeatureView::draw(screen);
         }
       },
       *state.destination);

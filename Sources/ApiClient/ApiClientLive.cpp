@@ -1,27 +1,25 @@
 module;
 
-// HTTP + JSON live in this implementation unit's global module fragment, so
-// they stay private to this TU and never reach importers (which would clash
-// with `import std`). curl is a C header; the JSON header is C++ — both are
-// fine here because an implementation unit's GMF is not reachable.
+// curl lives in this implementation unit's global module fragment, so it stays
+// private to this TU and never reaches importers (which would clash with
+// `import std`). It is a C header, so the GMF is the right place for it.
 #include <curl/curl.h>
-#include <nlohmann/json.hpp>
 
 module ApiClientLive; // implementation unit
 
 import std;
 import ApiClient;
+import ServerRouter;
 import SharedModels;
 
 namespace ApiClient {
 
 namespace {
 
-using nlohmann::json;
-
-// No server is bundled; point FIFTEEN_API_BASE_URL at a real deployment. With
-// the default (or an unreachable host) calls fail as ApiError::offline and the
-// app shows local-only data.
+// No server is bundled by default; run the FifteenServer executable from this
+// repo (see Sources/server) or point FIFTEEN_API_BASE_URL at a deployment.
+// With an unreachable host calls fail as ApiError::offline and the app shows
+// local-only data.
 constexpr std::string_view kDefaultBaseUrl = "http://localhost:8080";
 
 // Process-wide curl init/cleanup. curl_global_init is not thread-safe, so the
@@ -65,10 +63,18 @@ struct Response {
   bool transportOk = false;
 };
 
-// One self-contained transfer with its own easy handle (libcurl easy handles
-// are single-thread-only, so per-call handles are the safe pattern). A non-null
-// `postBody` makes it a JSON POST.
-Response perform(const std::string &url, const char *postBody, std::stop_token &stop) {
+// Performs one route's request, rendered by the shared ServerRouter — the
+// client never hand-writes a path or body. One self-contained transfer with
+// its own easy handle (libcurl easy handles are single-thread-only, so
+// per-call handles are the safe pattern).
+Response perform(const std::string &baseUrl, const ServerRouter::Route &route,
+                 std::stop_token &stop) {
+  const ServerRouter::Request request = ServerRouter::print(route);
+  std::string url = baseUrl + request.path;
+  if (!request.query.empty()) {
+    url += "?" + request.query;
+  }
+
   Response response;
   CURL *curl = curl_easy_init();
   if (!curl) {
@@ -86,10 +92,10 @@ Response perform(const std::string &url, const char *postBody, std::stop_token &
   curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &stop);
 
   curl_slist *headers = nullptr;
-  if (postBody != nullptr) {
+  if (request.method == "POST") {
     headers = curl_slist_append(headers, "Content-Type: application/json");
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postBody);
+    curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, request.body.c_str());
   }
 
   if (curl_easy_perform(curl) == CURLE_OK) {
@@ -118,8 +124,8 @@ Client live(std::string explicitUrl) {
         if (stop.stop_requested()) {
           return std::unexpected(ApiError::cancelled);
         }
-        const std::string url = std::format("{}/leaderboard?size={}", baseUrl, gridSize);
-        const Response response = perform(url, nullptr, stop);
+        const Response response =
+            perform(baseUrl, ServerRouter::FetchLeaderboard{.gridSize = gridSize}, stop);
         if (stop.stop_requested()) {
           return std::unexpected(ApiError::cancelled);
         }
@@ -129,36 +135,24 @@ Client live(std::string explicitUrl) {
         if (!isSuccess(response.status)) {
           return std::unexpected(ApiError::httpError);
         }
-        try {
-          const json doc = json::parse(response.body);
-          std::vector<SharedModels::LeaderboardEntry> entries;
-          entries.reserve(doc.size());
-          for (const auto &item : doc) {
-            entries.push_back(
-                SharedModels::LeaderboardEntry{.name = item.at("name").get<std::string>(),
-                                               .gridSize = gridSize,
-                                               .moves = item.at("moves").get<int>(),
-                                               .duration = item.at("duration").get<int>(),
-                                               .playedAt = item.value("playedAt", 0.0)});
-          }
-          return entries;
-        } catch (const json::exception &) {
+        auto entries = ServerRouter::decodeLeaderboardEntries(response.body);
+        if (!entries.has_value()) {
           return std::unexpected(ApiError::decodingError);
         }
+        for (auto &entry : *entries) {
+          if (entry.gridSize == 0) {
+            entry.gridSize = gridSize; // implied by the request when a server omits it
+          }
+        }
+        return std::move(*entries);
       },
       .submitScore = [global, baseUrl](SharedModels::ScoreSubmission submission,
                                        std::stop_token stop) -> std::expected<void, ApiError> {
         if (stop.stop_requested()) {
           return std::unexpected(ApiError::cancelled);
         }
-        const json body = {{"name", submission.name},
-                           {"gridSize", submission.gridSize},
-                           {"moves", submission.moves},
-                           {"duration", submission.duration},
-                           {"playedAt", submission.playedAt}};
-        const std::string payload = body.dump();
-        const std::string url = std::format("{}/scores", baseUrl);
-        const Response response = perform(url, payload.c_str(), stop);
+        const Response response =
+            perform(baseUrl, ServerRouter::SubmitScore{.submission = std::move(submission)}, stop);
         if (stop.stop_requested()) {
           return std::unexpected(ApiError::cancelled);
         }

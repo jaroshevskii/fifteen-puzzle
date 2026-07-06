@@ -6,8 +6,11 @@
 [![Format](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/format.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/format.yml)
 [![Release](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/release.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/release.yml)
 
-A implementation of the classic 15 Puzzle built with C++ and raylib.  
-The project focuses on clarity, deterministic layout, and straightforward rendering logic.
+A implementation of the classic 15 Puzzle built with C++ and raylib — organized
+as a **client + server monorepo** in the style of [isowords][isowords]: one
+repository, one build, with the game, the backend (`FifteenServer`) and the
+modules they share (game rules, API routes, the multiplayer protocol) defined
+once and imported by both sides.
 
 <img width="488" height="520" alt="image" src="https://github.com/user-attachments/assets/8b4296a7-e054-4c21-8e27-a9fba1c9a2e4" />
 
@@ -24,6 +27,9 @@ This project implements:
 - Solvable shuffle logic
 - Win state detection
 - Elapsed/victory timer with optional tick sound
+- Online leaderboard served by the bundled `FifteenServer`
+- Realtime head-to-head **multiplayer** (race an opponent on the same board,
+  with the server as referee)
 
 ## Architecture
 
@@ -57,6 +63,26 @@ in at launch via `prepareDependencies`.
 preferences, triggers, delegate closures, `spawn`, `@FeatureLocal`, events, and
 full `@MainActor` actor isolation (we use a single-threaded loop with a
 main-thread-guarded store instead).*
+
+**Modern-TCA checklist** the features are held to (and re-validated as of the
+multiplayer work):
+
+- Actions named literally after what happened — user intent (`TileTapped`,
+  `RematchTapped`) or effect payloads (`SolverSucceeded`, `RemoteResponse`,
+  `ClientEvent`) — never imperative commands.
+- Every effect reports back through an action; background tasks touch state
+  only via `store.send`/`store.modify`. Long-running effects have cancellation
+  ids (`"auto-solve"`, `"leaderboard-remote"`, `"multiplayer-connection"`).
+- All I/O and nondeterminism behind `Dependency` keys (date, RNG, audio,
+  solver, database, API, multiplayer connection); features never reach for the
+  wall clock or a raw socket. The `GameServer` engine draws its seeds and
+  timestamps through the same keys, so server tests pin them too.
+- State-driven navigation with an enum `Destination` (`ifCaseLet` +
+  `caseState`); presentation lifecycle is the parent's job — present the case,
+  then dispatch the child's `Appeared` (Leaderboard and Multiplayer both).
+- Exhaustive `TestStore` coverage per feature, plus isowords-style integration
+  tests where the client feature runs against the real server middleware
+  in-process.
 
 The code targets **C++26** and is organized as **C++20 named modules** (one
 module per concept, with partitions for the core libraries). The standard
@@ -121,10 +147,12 @@ Heavy C++ third-party headers (nlohmann/json) are confined to module
 with `import std;` — the same global-module-fragment discipline used for the C
 audio/SQLite/curl headers.
 
-**Configuring the server.** No backend is bundled. Point the client at a real
-deployment via the `FIFTEEN_API_BASE_URL` environment variable (REST contract:
-`GET {base}/leaderboard?size=N`, `POST {base}/scores`). With it unset or
-unreachable, the leaderboard simply shows local scores.
+**Configuring the server.** The backend lives in this repo (see *The server*
+below). Run it with `Bootstrap/run-server.sh` and the client's defaults
+(`http://localhost:8080`, multiplayer on `:8091`) just work; point a client at
+a remote deployment via `FIFTEEN_API_BASE_URL` and `FIFTEEN_MP_HOST` /
+`FIFTEEN_MP_PORT`. With the server unreachable, the leaderboard simply shows
+local scores and the multiplayer screen offers a retry.
 
 A per-user data directory (`~/Library/Application Support/FifteenPuzzle` on
 macOS, `$XDG_DATA_HOME` on Linux, `%APPDATA%` on Windows) holds `settings.json`,
@@ -135,7 +163,8 @@ macOS, `$XDG_DATA_HOME` on Linux, `%APPDATA%` on Windows) holds `settings.json`,
 ### Screen navigation & resume (state-driven)
 
 The app is a small state machine of screens — **Main Menu**, in-game, **Pause**,
-**Settings**, **Leaderboard**, **Victory** — modeled the modern-TCA way. The game
+**Settings**, **Leaderboard**, **Multiplayer**, **Victory** — modeled the
+modern-TCA way. The game
 state is always present; the other screens are a presented
 `std::optional<Destination>` (a `std::variant` of screen states), so exactly one
 screen is shown at a time and the in-progress game is never lost behind a menu.
@@ -152,7 +181,67 @@ menu offers **Continue** when a save exists; the **Auto-resume** setting (off by
 default) instead jumps straight into the saved game. Pause freezes the timer
 (the clock only ticks in-game).
 
-### Modules (`src/`)
+### The server (`Sources/server` — monorepo, the isowords way)
+
+The repo is laid out like isowords: a thin app shell (`App/main.cpp`), all
+logic in `Sources/` module targets (client-only, server-only, and shared), and
+`Tests/` covering both sides in one build.
+
+`FifteenServer` is a single self-contained binary (SQLite file next to it — no
+Docker, no external database) serving two things:
+
+- **The HTTP API** — `GET /leaderboard?size=N`, `POST /scores`. A tiny
+  HTTP/1.1 shell (`HttpServer`) feeds requests to **`SiteMiddleware`**, the
+  pure `Request → Response` handler (isowords' middleware pattern). Both sides
+  of the wire come from the shared **`ServerRouter`** module: `ApiClientLive`
+  *prints* a `Route` into a request and the server *matches* it back, so the
+  client and server can never disagree about paths or body shapes — the C++
+  analog of isowords' ParserPrinter router.
+- **The multiplayer referee** — a line-JSON TCP protocol (`MultiplayerCore`,
+  shared) driving **`GameServer`**: matchmaking by board size, then a race.
+  The server **deals every board** (both players get the same scramble seed)
+  and **re-plays every reported move** on its own copy using the shared
+  **`PuzzleCore`** rules — the isowords anti-cheat idea: a client can't claim
+  a win, the referee notices the solved board itself and only then writes the
+  winner into the same leaderboard the HTTP API serves.
+
+Boot it locally (env vars: `FIFTEEN_SERVER_PORT`, `FIFTEEN_SERVER_MP_PORT`,
+`FIFTEEN_SERVER_DATABASE`):
+
+```sh
+Bootstrap/run-server.sh
+```
+
+Server logic is tested without sockets: `SiteMiddlewareTests` backs the
+client's `ApiClient` with the *real* middleware + an in-memory database and
+drives `LeaderboardFeature` against it in-process (the isowords
+integration-test signature), and `GameServerTests` drives the pure
+matchmaking/referee `Engine` directly — pinned clock and seeds via the
+Dependencies library.
+
+### Multiplayer (realtime race)
+
+**Multiplayer** in the main menu queues you for an opponent at your last board
+size. Both players receive the identical board (dealt from the server's seed
+via the shared, platform-deterministic `PuzzleCore::scrambled`); first to
+solve wins — as judged by the server, which confirmed every move along the
+way. The HUD shows your clock and both players' move counts, and a **live mini
+preview of the opponent's board** sits in the corner: their board is dealt from
+the same seed and every relayed (referee-validated) move is replayed on it with
+the shared `PuzzleCore` rules, so you watch their race in real time (it flashes
+green if they solve). If your opponent leaves, you win by walkover; `R`/`Enter`
+starts a rematch.
+
+`MultiplayerFeature` is a plain TCA state machine: presenting the screen
+dispatches `Appeared`, which starts the blocking connection loop
+(`MultiplayerClient` dependency, live TCP impl) as a **cancellable
+`store.addTask`** — dismissing the screen cancels the task, whose
+`std::stop_token` sends a polite `Leave` on the way out. Every server event
+arrives through one `ClientEvent` action, so the whole session (queue → race →
+finish, drops, walkovers) is exhaustively tested with `TestStore` and a
+scripted stub client.
+
+### Modules (`Sources/`)
 
 - `ComposableArchitecture` — core module (`:CasePath`, `:Store`, `:Feature`, `:Scope`, `:Navigation` [`ifCaseLet`/`caseState`], `:TestStore` partitions)
 - `Dependencies` — dependency container module (`:Core`, `:DateGenerator`, `:RandomNumberGenerator` partitions)
@@ -160,14 +249,21 @@ default) instead jumps straight into the saved game. Pause freezes the timer
 - `Sharing` / `AppSettings` / `AppSettingsLive` — persisted shared state: a `Shared<T>` value with `inMemory` / JSON `fileStorage` strategies, used for app settings (sound, board size, player name, auto-resume)
 - `SavedGame` / `SavedGameLive` — the in-progress-game snapshot persisted for Continue / resume (save-nullopt clears it)
 - `Sqlite` / `DatabaseClient` / `DatabaseClientLive` — SQLite wrapper and the local leaderboard/stats database dependency
-- `ApiClient` / `ApiClientLive` — remote leaderboard dependency interface and its live libcurl + JSON implementation
+- `PuzzleCore` — **shared** pure board rules (solved layout, adjacency, deterministic scramble, slide) used by the client's features and the server's referee
+- `ServerRouter` — **shared** HTTP API surface: routes defined once, printed by the client and matched by the server (+ the JSON codecs)
+- `MultiplayerCore` — **shared** realtime wire protocol (messages + line-JSON codec)
+- `TcpSocket` — minimal blocking TCP wrapper (POSIX/Winsock confined to the impl unit)
+- `ApiClient` / `ApiClientLive` — remote leaderboard dependency interface and its live libcurl implementation (requests rendered by `ServerRouter`)
+- `MultiplayerClient` / `MultiplayerClientLive` — realtime connection dependency interface and its live TCP implementation
+- `SiteMiddleware` / `HttpServer` / `GameServer` / `ServerBootstrap` / `server` — **server-only**: pure request handler, HTTP shell, matchmaking + referee engine, environment bootstrap, and the `FifteenServer` executable
 - `AudioPlayerClient` / `AudioPlayerClientLive` — audio dependency interface module and its live OpenAL implementation
 - `SolverClient` / `SolverClientLive` — auto-solve planner dependency and its live (history-reversing) implementation
 - `PuzzleFeature` / `PuzzleFeatureView` — puzzle reducer module and its raylib view module
 - `SettingsFeature` / `SettingsFeatureView` — settings reducer (sound / board size / name / auto-resume) and its raylib view
 - `LeaderboardFeature` / `LeaderboardFeatureView` — leaderboard reducer (merges local + remote) and its raylib view
+- `MultiplayerFeature` / `MultiplayerFeatureView` — realtime race reducer (connection lifecycle, board dealt from the server seed, referee-confirmed finish) and its raylib view
 - `MenuView` — a small raylib UI kit (button column) shared by the menu/pause/victory screens
-- `AppFeature` / `AppFeatureView` — composition-root reducer scoping the puzzle + presented destinations (menu/pause/settings/leaderboard/victory), and its one-screen-at-a-time view
+- `AppFeature` / `AppFeatureView` — composition-root reducer scoping the puzzle + presented destinations (menu/pause/settings/leaderboard/multiplayer/victory), and its one-screen-at-a-time view
 
 ## Controls
 
@@ -181,6 +277,7 @@ default) instead jumps straight into the saved game. Pause freezes the timer
 - Auto-solve (toggle) — H
 - Near-win shortcut — double-press W
 - Leaderboard — L (in game or from the menu)
+- Multiplayer — from the main menu (R / Enter for a rematch, Esc to leave)
 
 The board is resizable from 4×4 up to 13×13. The window grows with the board up
 to a cap (3× the base 4×4 board); beyond that, tiles shrink to fit.

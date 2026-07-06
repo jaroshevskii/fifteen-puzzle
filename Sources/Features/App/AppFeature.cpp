@@ -5,6 +5,7 @@ import ComposableArchitecture;
 import Dependencies;
 import PuzzleFeature;
 import LeaderboardFeature;
+import MultiplayerFeature;
 import SettingsFeature;
 import SavedGame;
 import SharedModels;
@@ -123,10 +124,20 @@ ComposableArchitecture::Feature<State, Action> body() {
             leaderboard.isVisible = true;
             state.destination = std::move(leaderboard);
             store.send(Leaderboard{LeaderboardFeature::Appeared{}}); // explicit lifecycle
+          } else if constexpr (std::is_same_v<V, OpenMultiplayer>) {
+            state.returnDestination = state.destination;
+            state.destination = MultiplayerFeature::initialState(
+                state.puzzle.settings.get().playerName, state.puzzle.settings.get().lastBoardSize);
+            store.send(Multiplayer{MultiplayerFeature::Appeared{}}); // explicit lifecycle
           } else if constexpr (std::is_same_v<V, Dismiss>) {
             if (state.destination.has_value()) {
               if (const auto *settings = std::get_if<SettingsFeature::State>(&*state.destination)) {
                 state.puzzle.settings = settings->settings; // sync edits back
+              }
+              if (std::holds_alternative<MultiplayerFeature::State>(*state.destination)) {
+                // Tear down the connection task; its stop_token sends a polite
+                // Leave to the server on the way out.
+                store.cancel(std::string(MultiplayerFeature::kConnectionCancelId));
               }
             }
             state.destination = state.returnDestination.value_or(Destination{MainMenuScreen{}});
@@ -194,6 +205,15 @@ ComposableArchitecture::Feature<State, Action> body() {
           ComposableArchitecture::casePath<Action, Leaderboard, LeaderboardFeature::Action>(
               &Leaderboard::action),
           LeaderboardFeature::body()));
+
+  feature.add(
+      ComposableArchitecture::ifCaseLet<State, Action, Destination, MultiplayerFeature::State,
+                                        MultiplayerFeature::Action>(
+          &State::destination,
+          ComposableArchitecture::caseState<Destination, MultiplayerFeature::State>(),
+          ComposableArchitecture::casePath<Action, Multiplayer, MultiplayerFeature::Action>(
+              &Multiplayer::action),
+          MultiplayerFeature::body()));
 
   return feature;
 }
