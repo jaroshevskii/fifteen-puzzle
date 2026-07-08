@@ -186,6 +186,23 @@ else()
   set(SQLITE_TARGET sqlite3_amalg)
 endif()
 
+# On macOS the system libsqlite3 lives in the SDK, so find_package reports
+# "<sdk>/usr/include" as its include dir. `Sqlite` links this target PUBLIC, so
+# that bare `-isystem <sdk>/usr/include` propagates transitively to every
+# consumer (down to the FifteenServer executable), where it puts the SDK ahead
+# of Clang's own resource headers and breaks the SDK's `#include_next <stddef.h>`
+# chain (e.g. `<signal.h>` fails with "unknown type name 'ptrdiff_t'"). It is
+# the same hazard handled for CURL below; sqlite3.h stays reachable via the
+# implicit sysroot, so strip the bare "/usr/include" entry from the target.
+if(APPLE AND TARGET SQLite::SQLite3)
+  get_target_property(_sqlite_includes SQLite::SQLite3 INTERFACE_INCLUDE_DIRECTORIES)
+  if(_sqlite_includes)
+    list(FILTER _sqlite_includes EXCLUDE REGEX "/usr/include/?$")
+    set_target_properties(SQLite::SQLite3 PROPERTIES
+      INTERFACE_INCLUDE_DIRECTORIES "${_sqlite_includes}")
+  endif()
+endif()
+
 # --- CURL ---------------------------------------------------------------------
 # HTTP transport for the network client. Always resolved via find_package (even
 # for static release builds): system libcurl ships on every CI runner and via
