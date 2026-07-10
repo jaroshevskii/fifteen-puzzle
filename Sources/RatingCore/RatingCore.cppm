@@ -81,9 +81,8 @@ struct Projection {
 };
 
 constexpr Projection project(Rating player, int opponentRating) {
-  return Projection{
-      .ifWin = ratingDelta(player.value, opponentRating, 1.0, player.gamesPlayed),
-      .ifLoss = ratingDelta(player.value, opponentRating, 0.0, player.gamesPlayed)};
+  return Projection{.ifWin = ratingDelta(player.value, opponentRating, 1.0, player.gamesPlayed),
+                    .ifLoss = ratingDelta(player.value, opponentRating, 0.0, player.gamesPlayed)};
 }
 
 // Seasonal ranks by rating threshold, lowest-first.
@@ -135,7 +134,8 @@ constexpr std::string_view rankName(Rank rank) {
 // (keeps skill order, compresses the spread) and zero the game counters so the
 // provisional K-factor lets players re-settle quickly.
 constexpr Rating softReset(Rating rating) {
-  return Rating{.value = startingRating + (rating.value - startingRating) * 2 / 3, .gamesPlayed = 0};
+  return Rating{.value = startingRating + (rating.value - startingRating) * 2 / 3,
+                .gamesPlayed = 0};
 }
 
 } // namespace RatingCore

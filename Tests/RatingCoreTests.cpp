@@ -36,8 +36,7 @@ void testWinDirectionAndBounds() {
   expect(outcome.winner.gamesPlayed == 51 && outcome.loser.gamesPlayed == 51,
          "both games-played counters advance");
   // Established K=10: an even game moves exactly K*(1-0.5)=5 each way.
-  expect(outcome.winnerDelta == 5 && outcome.loserDelta == -5,
-         "even established game is worth ±5");
+  expect(outcome.winnerDelta == 5 && outcome.loserDelta == -5, "even established game is worth ±5");
 }
 
 void testUpsetVsExpectedWin() {
