@@ -42,6 +42,11 @@ int main() {
 
   signal(SIGINT, &onSignal);
   signal(SIGTERM, &onSignal);
+#if defined(SIGPIPE)
+  // A peer that drops mid-write must never take the server down (TcpSocket also
+  // suppresses this per socket; this is belt-and-suspenders).
+  signal(SIGPIPE, SIG_IGN);
+#endif
 
   std::println("⏳ fifteen-server: http on :{} — multiplayer on :{} (max {} conns) — db at {}",
                environment->envVars.httpPort, environment->envVars.multiplayerPort,

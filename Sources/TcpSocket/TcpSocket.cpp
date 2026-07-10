@@ -66,6 +66,25 @@ void setRecvTimeout(NativeSocket s, std::chrono::milliseconds timeout) {
 
 NativeSocket native(std::intptr_t handle) { return static_cast<NativeSocket>(handle); }
 
+// Writing to a socket whose peer has closed raises SIGPIPE on POSIX, whose
+// default action terminates the process — so a client that connects and drops
+// abruptly (a readiness probe, a killed peer) would take the whole server (or
+// the game) down. Suppress it per socket: `MSG_NOSIGNAL` on the send path where
+// available (Linux), and the `SO_NOSIGPIPE` socket option where that is the
+// mechanism instead (macOS/BSD). Windows has no SIGPIPE, so both compile out.
+#if defined(MSG_NOSIGNAL)
+constexpr int kSendFlags = MSG_NOSIGNAL;
+#else
+constexpr int kSendFlags = 0;
+#endif
+
+void suppressSigpipe([[maybe_unused]] NativeSocket s) {
+#if defined(SO_NOSIGPIPE)
+  const int on = 1;
+  setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, reinterpret_cast<const char *>(&on), sizeof(on));
+#endif
+}
+
 } // namespace
 
 // --- Connection ----------------------------------------------------------
@@ -102,6 +121,7 @@ std::optional<Connection> Connection::connect(const std::string &host, int port)
     if (static_cast<std::intptr_t>(s) == kInvalid) {
       continue;
     }
+    suppressSigpipe(s);
     if (::connect(s, info->ai_addr, static_cast<int>(info->ai_addrlen)) == 0) {
       handle = static_cast<std::intptr_t>(s);
       break;
@@ -134,7 +154,7 @@ bool Connection::sendAll(std::string_view data) {
 #else
                           data.size() - sent,
 #endif
-                          0);
+                          kSendFlags);
     if (n <= 0) {
       return false;
     }
@@ -247,6 +267,7 @@ std::optional<Connection> Listener::accept() {
   if (static_cast<std::intptr_t>(s) == kInvalid) {
     return std::nullopt;
   }
+  suppressSigpipe(s);
   return Connection(static_cast<std::intptr_t>(s));
 }
 

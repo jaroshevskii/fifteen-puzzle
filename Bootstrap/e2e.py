@@ -107,7 +107,9 @@ def cleanup_dir(path):
 
 
 def http_request(method, path, body=None):
-    """Return (status, text). Non-2xx statuses come back instead of raising."""
+    """Return (status, text). Non-2xx statuses come back instead of raising;
+    a transport failure (server gone) comes back as (0, reason) so a check can
+    fail cleanly rather than crash the script."""
     url = "http://{}:{}{}".format(HOST, HTTP_PORT, path)
     data = None
     headers = {}
@@ -120,6 +122,8 @@ def http_request(method, path, body=None):
             return response.getcode(), response.read().decode("utf-8")
     except urllib.error.HTTPError as error:
         return error.code, error.read().decode("utf-8")
+    except (urllib.error.URLError, OSError) as error:
+        return 0, "transport error: {}".format(error)
 
 
 def run_http_checks():
@@ -290,6 +294,11 @@ def main():
                 dump_log(log_path)
                 return 1
             run_mp_checks()
+        # If anything failed, the server log usually explains it (a crash, a
+        # bind failure, a mid-run exit).
+        if _failures or proc.poll() is not None:
+            log.flush()
+            dump_log(log_path)
     finally:
         shutdown(proc)
         log.close()
