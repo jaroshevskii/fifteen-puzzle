@@ -57,3 +57,13 @@ jobs:
           cmake --build --preset windows
           cmake --build --preset tests-windows
           ctest --preset windows
+
+      # HTTP-only end-to-end smoke: boots the real server and drives the API. The
+      # multiplayer TCP race is intentionally skipped here (--http-only) — a
+      # Winsock-hardened race script is a follow-up; macOS/Linux cover the full
+      # referee path.
+      - name: End-to-end smoke test (HTTP only)
+        shell: pwsh
+        run: |
+          cmake --build --preset windows --target FifteenServer
+          python Bootstrap/e2e.py --http-only build/FifteenServer.exe

@@ -100,28 +100,97 @@ void drawBoard(const PuzzleFeature::State &state, double appear) {
   const float board = layout.tile * static_cast<float>(state.grid);
   DrawRectangleRec({layout.originX, layout.originY, board, board}, DARKPURPLE);
 
-  // Tiles drop in with a staggered ease-out when the board first appears; the
-  // spread is normalized by tile count so it stays ~0.6s on any board size.
+  // Sliding tiles: each tile eases from where it was last frame toward its
+  // current target cell, so a move (or a reshuffle) glides instead of
+  // teleporting. The animated positions live in a view-only cache keyed by tile
+  // label; a change in grid size resets it so a new board snaps into place. On
+  // top of the slide, freshly-appearing tiles fade+drop in (the intro feel).
+  static int cachedGrid = -1;
+  static std::unordered_map<std::string, Vector2> positions;
+  if (state.grid != cachedGrid) {
+    positions.clear();
+    cachedGrid = state.grid;
+  }
+  // Frame-rate-independent ease toward the target (~120ms to close the gap).
+  const float dt = GetFrameTime();
+  const float blend = 1.0f - std::exp(-dt * 18.0f);
+
   const int count = state.grid * state.grid;
   constexpr float spread = 0.3f;
   constexpr float duration = 0.3f;
 
   for (int index = 0; index < static_cast<int>(state.tiles.size()); ++index) {
-    Rectangle rect = rectangleForIndex(index, state.grid);
+    const Rectangle target = rectangleForIndex(index, state.grid);
     if (state.tiles[index].empty()) {
-      drawCard(state.tiles[index], rect); // the hole stays put
+      drawCard(state.tiles[index], target); // the hole stays put
       continue;
     }
+
+    const std::string &label = state.tiles[index];
+    Vector2 &pos = positions[label];
+    // First sight of this label: snap to the target (no slide from origin).
+    if (pos.x == 0.0f && pos.y == 0.0f) {
+      pos = {target.x, target.y};
+    } else {
+      pos.x += (target.x - pos.x) * blend;
+      pos.y += (target.y - pos.y) * blend;
+    }
+
+    // Appear fade/drop, staggered by cell, only while the board is settling in.
     const float progress = std::clamp(
         static_cast<float>((appear - static_cast<double>(index) / count * spread) / duration), 0.0f,
         1.0f);
-    if (progress <= 0.0f) {
-      continue; // not dropped in yet
+    Rectangle rect{pos.x, pos.y, target.width, target.height};
+    unsigned char alpha = 255;
+    if (progress < 1.0f) {
+      const float eased = easeOutCubic(progress);
+      const float startY = -layout.tile;
+      rect.y = startY + (rect.y - startY) * eased;
+      alpha = static_cast<unsigned char>(255 * progress);
     }
-    const float eased = easeOutCubic(progress);
-    const float startY = -layout.tile; // fly down from just above the screen
-    rect.y = startY + (rect.y - startY) * eased;
-    drawCard(state.tiles[index], rect, static_cast<unsigned char>(255 * progress));
+    drawCard(label, rect, alpha);
+  }
+}
+
+// A small confetti burst for the victory overlay — view-only, seeded once per
+// win and animated by the raylib clock. `active` (re)seeds when a win begins.
+void drawConfetti(bool active) {
+  struct Particle {
+    float x, y, vx, vy;
+    Color color;
+  };
+  static std::vector<Particle> particles;
+  static bool seeded = false;
+
+  if (!active) {
+    seeded = false;
+    particles.clear();
+    return;
+  }
+  const float width = static_cast<float>(GetScreenWidth());
+  if (!seeded) {
+    seeded = true;
+    particles.clear();
+    const Color palette[] = {ORANGE, GREEN, SKYBLUE, GOLD, PINK, VIOLET};
+    for (int i = 0; i < 160; ++i) {
+      particles.push_back(
+          Particle{.x = static_cast<float>(GetRandomValue(0, static_cast<int>(width))),
+                   .y = static_cast<float>(GetRandomValue(-400, 0)),
+                   .vx = static_cast<float>(GetRandomValue(-40, 40)),
+                   .vy = static_cast<float>(GetRandomValue(120, 320)),
+                   .color = palette[GetRandomValue(0, 5)]});
+    }
+  }
+  const float dt = GetFrameTime();
+  const float height = static_cast<float>(GetScreenHeight());
+  for (auto &p : particles) {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    if (p.y > height) {
+      p.y = static_cast<float>(GetRandomValue(-200, 0)); // recycle so it keeps raining
+      p.x = static_cast<float>(GetRandomValue(0, static_cast<int>(width)));
+    }
+    DrawRectangleV({p.x, p.y}, {6.0f, 6.0f}, p.color);
   }
 }
 
@@ -129,6 +198,7 @@ void drawOverlay() {
   const int width = GetScreenWidth();
   const int height = GetScreenHeight();
   DrawRectangle(0, 0, width, height, Color{0, 0, 0, 192});
+  drawConfetti(true);
   const char *title = "Victory!";
   constexpr int titleFontSize = 60;
   DrawText(title, (width - MeasureText(title, titleFontSize)) / 2,
@@ -242,6 +312,8 @@ void draw(const PuzzleFeature::State &state) {
   drawBoard(state, boardAppearElapsed(state));
   if (state.isGameOver) {
     drawOverlay();
+  } else {
+    drawConfetti(false); // reset the burst so the next win re-seeds fresh
   }
   if (state.isSolving) {
     drawSolvingBanner(state);

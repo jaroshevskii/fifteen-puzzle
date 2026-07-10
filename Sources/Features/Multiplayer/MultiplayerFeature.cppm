@@ -49,6 +49,10 @@ struct State {
   std::string winnerName;
   int finalDurationSeconds = 0;
 
+  // Set while `phase == failed` when the server refused us at capacity, so the
+  // view can show "server full — try again" instead of a generic error.
+  bool serverWasFull = false;
+
   bool operator==(const State &) const = default;
 };
 

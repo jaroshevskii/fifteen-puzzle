@@ -5,6 +5,7 @@ import ComposableArchitecture;
 import PuzzleFeature;
 import LeaderboardFeature;
 import MultiplayerFeature;
+import LiveFeature;
 import SettingsFeature;
 import SavedGame;
 import Sharing;
@@ -36,14 +37,13 @@ struct GameOverScreen {
 // via `ifCaseLet`.
 using Destination =
     std::variant<IntroScreen, MainMenuScreen, PausedScreen, GameOverScreen, SettingsFeature::State,
-                 LeaderboardFeature::State, MultiplayerFeature::State>;
+                 LeaderboardFeature::State, MultiplayerFeature::State, LiveFeature::State>;
 
 struct State {
   PuzzleFeature::State puzzle;                  // always present
   std::optional<Destination> destination;       // nullopt => game shown
   std::optional<Destination> returnDestination; // where to go on Dismiss
   Sharing::Shared<std::optional<SavedGame::Game>> savedGame;
-  bool didSubmitCurrentWin = false;                      // win edge-detect
   std::optional<std::tuple<int, int, int>> lastSavedSig; // autosave throttle
   bool wantsQuit = false;                                // main loop exits
 
@@ -63,6 +63,9 @@ struct Settings {
 struct Multiplayer {
   MultiplayerFeature::Action action;
 };
+struct Live {
+  LiveFeature::Action action;
+};
 
 // Navigation actions.
 struct ShowMenu {};
@@ -73,13 +76,15 @@ struct Resume {};
 struct OpenSettings {};
 struct OpenLeaderboard {};
 struct OpenMultiplayer {};
+struct OpenLive {};
 struct Dismiss {};
 struct PlayAgain {};
 struct QuitTapped {};
 
-using Action = std::variant<Puzzle, Leaderboard, Settings, Multiplayer, ShowMenu, StartNewGame,
-                            ContinueGame, PauseTapped, Resume, OpenSettings, OpenLeaderboard,
-                            OpenMultiplayer, Dismiss, PlayAgain, QuitTapped>;
+using Action =
+    std::variant<Puzzle, Leaderboard, Settings, Multiplayer, Live, ShowMenu, StartNewGame,
+                 ContinueGame, PauseTapped, Resume, OpenSettings, OpenLeaderboard, OpenMultiplayer,
+                 OpenLive, Dismiss, PlayAgain, QuitTapped>;
 
 // Builds the initial state. If a saved game exists it is restored into the
 // puzzle; the launch screen is the game itself when `settings.autoResume` is on,

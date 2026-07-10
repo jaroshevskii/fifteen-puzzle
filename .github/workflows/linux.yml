@@ -67,3 +67,13 @@ jobs:
           cmake --build --preset linux
           cmake --build --preset tests-linux   # tests are EXCLUDE_FROM_ALL
           ctest --preset linux
+
+      # Boots the real server on scratch ports and drives the HTTP API + the
+      # multiplayer TCP referee end-to-end (no sockets are mocked here).
+      - name: End-to-end smoke test (server API + multiplayer)
+        env:
+          CC: clang-21
+          CXX: clang++-21
+        run: |
+          cmake --build --preset linux --target FifteenServer
+          python3 Bootstrap/e2e.py ./build/FifteenServer

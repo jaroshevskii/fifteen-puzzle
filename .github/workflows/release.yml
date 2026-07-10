@@ -73,7 +73,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           cmake --preset macos -DCMAKE_BUILD_TYPE=Release -DFIFTEEN_STATIC_DEPS=ON
-          cmake --build --preset macos
+          cmake --build --preset macos --target FifteenPuzzle FifteenServer
 
       - name: Build (Linux)
         if: runner.os == 'Linux'
@@ -90,35 +90,46 @@ jobs:
           done
           test -n "$json"
           cmake --preset linux -DCMAKE_CXX_STDLIB_MODULES_JSON="$json" -DCMAKE_BUILD_TYPE=Release -DFIFTEEN_STATIC_DEPS=ON
-          cmake --build --preset linux
+          cmake --build --preset linux --target FifteenPuzzle FifteenServer
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
         shell: cmd
         run: |
           cmake --preset windows -DCMAKE_BUILD_TYPE=Release -DFIFTEEN_STATIC_DEPS=ON -DCMAKE_TOOLCHAIN_FILE="%VCPKG_INSTALLATION_ROOT%\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows-static-md
-          cmake --build --preset windows
+          cmake --build --preset windows --target FifteenPuzzle FifteenServer
 
       # --- package + publish ----------------------------------------------------
-      # Archive the binary so the executable bit survives download/extraction.
-      # A bare binary served over HTTP loses its +x and macOS shows it as a
-      # "Document" that won't run; tar.gz (and zip on Windows) preserve it.
+      # Archive a stem-named directory holding the game client, the FifteenServer
+      # binary, and Bootstrap/run-server.sh. Archiving (not a bare binary) keeps
+      # the executable bit through download/extraction — a bare binary served over
+      # HTTP loses its +x and macOS shows it as a "Document" that won't run; tar.gz
+      # (and zip on Windows) preserve it.
       - name: Package (macOS/Linux)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           mkdir -p dist
-          cp "build/${{ matrix.bin }}" "${{ matrix.stem }}"
-          chmod +x "${{ matrix.stem }}"
-          tar -czf "dist/${{ matrix.archive }}" "${{ matrix.stem }}"
+          stage="${{ matrix.stem }}"   # stem-named dir; keeps the archive naming scheme
+          rm -rf "$stage" && mkdir -p "$stage"
+          cp "build/${{ matrix.bin }}" "$stage/${{ matrix.bin }}"
+          cp "build/FifteenServer" "$stage/FifteenServer"
+          cp "Bootstrap/run-server.sh" "$stage/run-server.sh"
+          chmod +x "$stage/${{ matrix.bin }}" "$stage/FifteenServer" "$stage/run-server.sh"
+          tar -czf "dist/${{ matrix.archive }}" "$stage"
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item "build/${{ matrix.bin }}" "${{ matrix.stem }}"
-          Compress-Archive -Path "${{ matrix.stem }}" -DestinationPath "dist/${{ matrix.archive }}" -Force
+          $stage = "${{ matrix.stem }}" -replace '\.exe$', ''   # a folder shouldn't be named *.exe
+          if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item "build/${{ matrix.bin }}" "$stage/${{ matrix.bin }}"
+          Copy-Item "build/FifteenServer.exe" "$stage/FifteenServer.exe"
+          Copy-Item "Bootstrap/run-server.sh" "$stage/run-server.sh"
+          Compress-Archive -Path $stage -DestinationPath "dist/${{ matrix.archive }}" -Force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7

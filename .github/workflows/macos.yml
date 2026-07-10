@@ -37,3 +37,10 @@ jobs:
           cmake --build --preset macos
           cmake --build --preset tests   # tests are EXCLUDE_FROM_ALL
           ctest --preset macos
+
+      # Boots the real server on scratch ports and drives the HTTP API + the
+      # multiplayer TCP referee end-to-end (no sockets are mocked here).
+      - name: End-to-end smoke test (server API + multiplayer)
+        run: |
+          cmake --build --preset macos --target FifteenServer
+          python3 Bootstrap/e2e.py ./build/FifteenServer

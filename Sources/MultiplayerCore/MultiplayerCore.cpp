@@ -27,6 +27,8 @@ std::string encode(const ClientMessage &message) {
           return json{{"type", "move"}, {"index", value.index}}.dump();
         } else if constexpr (std::is_same_v<V, Leave>) {
           return json{{"type", "leave"}}.dump();
+        } else if constexpr (std::is_same_v<V, Observe>) {
+          return json{{"type", "observe"}}.dump();
         }
       },
       message);
@@ -59,6 +61,28 @@ std::string encode(const ServerMessage &message) {
               .dump();
         } else if constexpr (std::is_same_v<V, OpponentLeft>) {
           return json{{"type", "opponentLeft"}}.dump();
+        } else if constexpr (std::is_same_v<V, ServerFull>) {
+          return json{{"type", "serverFull"}}.dump();
+        } else if constexpr (std::is_same_v<V, Presence>) {
+          return json{{"type", "presence"},
+                      {"online", value.online},
+                      {"racing", value.racing},
+                      {"waiting", value.waiting}}
+              .dump();
+        } else if constexpr (std::is_same_v<V, MatchStarted>) {
+          return json{{"type", "matchStarted"},
+                      {"matchId", value.matchId},
+                      {"gridSize", value.gridSize},
+                      {"playerA", value.playerA},
+                      {"playerB", value.playerB}}
+              .dump();
+        } else if constexpr (std::is_same_v<V, MatchEnded>) {
+          return json{{"type", "matchEnded"},
+                      {"matchId", value.matchId},
+                      {"winnerName", value.winnerName},
+                      {"gridSize", value.gridSize},
+                      {"durationSeconds", value.durationSeconds}}
+              .dump();
         }
       },
       message);
@@ -77,6 +101,9 @@ std::optional<ClientMessage> decodeClientMessage(std::string_view line) {
     }
     if (type == "leave") {
       return ClientMessage{Leave{}};
+    }
+    if (type == "observe") {
+      return ClientMessage{Observe{}};
     }
     return std::nullopt;
   } catch (const json::exception &) {
@@ -111,6 +138,26 @@ std::optional<ServerMessage> decodeServerMessage(std::string_view line) {
     }
     if (type == "opponentLeft") {
       return ServerMessage{OpponentLeft{}};
+    }
+    if (type == "serverFull") {
+      return ServerMessage{ServerFull{}};
+    }
+    if (type == "presence") {
+      return ServerMessage{Presence{.online = doc.at("online").get<int>(),
+                                    .racing = doc.at("racing").get<int>(),
+                                    .waiting = doc.at("waiting").get<int>()}};
+    }
+    if (type == "matchStarted") {
+      return ServerMessage{MatchStarted{.matchId = doc.at("matchId").get<int>(),
+                                        .gridSize = doc.at("gridSize").get<int>(),
+                                        .playerA = doc.at("playerA").get<std::string>(),
+                                        .playerB = doc.at("playerB").get<std::string>()}};
+    }
+    if (type == "matchEnded") {
+      return ServerMessage{MatchEnded{.matchId = doc.at("matchId").get<int>(),
+                                      .winnerName = doc.at("winnerName").get<std::string>(),
+                                      .gridSize = doc.at("gridSize").get<int>(),
+                                      .durationSeconds = doc.at("durationSeconds").get<int>()}};
     }
     return std::nullopt;
   } catch (const json::exception &) {

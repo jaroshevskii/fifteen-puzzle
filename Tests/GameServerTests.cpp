@@ -204,6 +204,52 @@ void testLeavingMidRaceNotifiesTheOpponent() {
   });
 }
 
+void testLiveFeedTracksMatches() {
+  withPinnedDependencies([] {
+    GameServer::Engine engine;
+
+    // A lone observer sees an empty snapshot and counts itself as online.
+    const auto subscribed = engine.observe(100);
+    const auto *snapshot = messageFor<MultiplayerCore::Presence>(subscribed, 100);
+    expect(snapshot != nullptr, "observe: subscriber gets a presence snapshot");
+    expect(snapshot && snapshot->racing == 0 && snapshot->online == 1,
+           "observe: alone means 0 racing, 1 online");
+    expect(messageFor<MultiplayerCore::MatchStarted>(subscribed, 100) == nullptr,
+           "observe: no matches in progress yet");
+
+    // A match begins → the observer is told, with names and updated counts.
+    (void)engine.join(1, "Ada", 4);
+    const auto started = engine.join(2, "Bob", 4);
+    const auto *matchStarted = messageFor<MultiplayerCore::MatchStarted>(started, 100);
+    expect(matchStarted != nullptr, "feed: observer sees MatchStarted");
+    expect(matchStarted && matchStarted->playerA == "Ada" && matchStarted->playerB == "Bob" &&
+               matchStarted->gridSize == 4,
+           "feed: MatchStarted carries names and grid");
+    const auto *duringMatch = messageFor<MultiplayerCore::Presence>(started, 100);
+    expect(duringMatch && duringMatch->racing == 2, "feed: presence shows 2 racing");
+
+    // A second observer joining mid-match gets the in-progress match in its snapshot.
+    const auto lateSubscribe = engine.observe(101);
+    expect(messageFor<MultiplayerCore::MatchStarted>(lateSubscribe, 101) != nullptr,
+           "observe: a mid-match subscriber sees the ongoing game");
+
+    // The winner's solve ends the match → both observers hear MatchEnded.
+    const auto *start = messageFor<MultiplayerCore::Start>(started, 1);
+    GameServer::Output last;
+    for (const int move : solutionFor(4, start->seed)) {
+      last = engine.move(1, move);
+    }
+    const auto *matchEnded = messageFor<MultiplayerCore::MatchEnded>(last, 100);
+    expect(matchEnded != nullptr && matchEnded->winnerName == "Ada",
+           "feed: observers see MatchEnded naming the winner");
+
+    // A fresh observer now sees no matches (the finished one is gone).
+    const auto afterFinish = engine.observe(102);
+    expect(messageFor<MultiplayerCore::MatchStarted>(afterFinish, 102) == nullptr,
+           "observe: finished matches drop out of the snapshot");
+  });
+}
+
 } // namespace
 
 int main() {
@@ -212,6 +258,7 @@ int main() {
   testMovesAreRefereedAndRelayed();
   testServerDetectsTheWinAndVerifiesTheResult();
   testLeavingMidRaceNotifiesTheOpponent();
+  testLiveFeedTracksMatches();
 
   if (failures == 0) {
     std::println("All GameServer tests passed.");

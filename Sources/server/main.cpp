@@ -43,9 +43,9 @@ int main() {
   signal(SIGINT, &onSignal);
   signal(SIGTERM, &onSignal);
 
-  std::println("⏳ fifteen-server: http on :{} — multiplayer on :{} — db at {}",
+  std::println("⏳ fifteen-server: http on :{} — multiplayer on :{} (max {} conns) — db at {}",
                environment->envVars.httpPort, environment->envVars.multiplayerPort,
-               environment->envVars.databasePath);
+               environment->envVars.maxConnections, environment->envVars.databasePath);
 
   // HTTP API on its own thread; the multiplayer referee runs on this one.
   std::jthread http([&](std::stop_token) {
@@ -70,7 +70,7 @@ int main() {
         std::println("🏁 verified multiplayer win: {} ({}x{}, {} moves, {}s)", result.name,
                      result.gridSize, result.gridSize, result.moves, result.duration);
       },
-      shutdownSource.get_token());
+      environment->envVars.maxConnections, shutdownSource.get_token());
   if (!ok) {
     std::println(std::cerr, "fifteen-server: could not bind multiplayer port {}",
                  environment->envVars.multiplayerPort);

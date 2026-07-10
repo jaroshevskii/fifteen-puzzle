@@ -39,6 +39,9 @@ public:
   Output move(PlayerId player, int index);
   // Covers both an explicit Leave message and a dropped connection.
   Output leave(PlayerId player);
+  // Subscribes `player` to the live feed: returns a Presence snapshot plus a
+  // MatchStarted for every match already in progress.
+  Output observe(PlayerId player);
 
 private:
   struct Board {
@@ -48,6 +51,7 @@ private:
   };
 
   struct Room {
+    int matchId = 0;
     int grid = 4;
     std::uint64_t seed = 0;
     double startedAt = 0.0;
@@ -63,16 +67,24 @@ private:
   Room *roomOf(PlayerId player);
   Output finishRoom(Room &room, PlayerId winner);
 
+  // Live-feed helpers.
+  MultiplayerCore::Presence presence() const;
+  void broadcastToObservers(Output &output, MultiplayerCore::ServerMessage message) const;
+
   std::map<int, WaitingPlayer> waitingByGrid_;      // one queued player per board size
   std::map<PlayerId, std::shared_ptr<Room>> rooms_; // both players point at the same room
+  std::set<PlayerId> observers_;                    // subscribed to the live feed
+  int nextMatchId_ = 1;
 };
 
 // The socket shell: accepts connections on `port`, decodes line-JSON client
 // messages, drives a mutex-guarded Engine, and delivers its outbound messages.
 // `onResult` receives each server-verified result (the server main persists
-// them to the leaderboard database). Returns false if the port cannot be
-// bound; otherwise blocks until `stop` is requested.
+// them to the leaderboard database). `maxConnections` caps concurrent workers
+// (<= 0 means unbounded); connections over the cap get a typed `ServerFull`
+// and are closed. Finished worker threads are reaped as new ones arrive.
+// Returns false if the port cannot be bound; otherwise blocks until `stop`.
 bool run(int port, std::function<void(const SharedModels::ScoreSubmission &)> onResult,
-         std::stop_token stop);
+         int maxConnections, std::stop_token stop);
 
 } // namespace GameServer

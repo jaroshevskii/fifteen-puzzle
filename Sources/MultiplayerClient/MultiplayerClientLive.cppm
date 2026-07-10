@@ -122,6 +122,42 @@ Client live(std::string explicitHost, int explicitPort) {
                                            "\n");
             }
           },
+      .observe =
+          [host, port](std::function<void(Event)> onEvent, std::stop_token stop) {
+            auto connection = TcpSocket::Connection::connect(host, port);
+            if (!connection.has_value()) {
+              onEvent(Failed{});
+              return;
+            }
+            connection->setReceiveTimeout(std::chrono::milliseconds(100));
+            connection->sendAll(MultiplayerCore::encode(
+                                    MultiplayerCore::ClientMessage{MultiplayerCore::Observe{}}) +
+                                "\n");
+            onEvent(Connected{});
+
+            bool closedByServer = false;
+            while (!stop.stop_requested()) {
+              const auto read = connection->readLine();
+              if (read.status == TcpSocket::ReadStatus::timedOut) {
+                continue;
+              }
+              if (read.status == TcpSocket::ReadStatus::closed) {
+                closedByServer = true;
+                break;
+              }
+              if (const auto message = MultiplayerCore::decodeServerMessage(read.line)) {
+                onEvent(Received{*message});
+              }
+            }
+            if (closedByServer) {
+              onEvent(Closed{});
+            } else {
+              connection->sendAll(MultiplayerCore::encode(
+                                      MultiplayerCore::ClientMessage{MultiplayerCore::Leave{}}) +
+                                  "\n");
+            }
+            connection->close();
+          },
   };
 }
 

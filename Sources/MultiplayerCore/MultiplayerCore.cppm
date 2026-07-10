@@ -33,7 +33,14 @@ struct Leave {
   bool operator==(const Leave &) const = default;
 };
 
-using ClientMessage = std::variant<Join, Move, Leave>;
+// Subscribe to the live feed instead of playing: the server answers with a
+// Presence snapshot and a MatchStarted for each game already in progress, then
+// pushes feed updates as matches begin and end. The seed of spectating.
+struct Observe {
+  bool operator==(const Observe &) const = default;
+};
+
+using ClientMessage = std::variant<Join, Move, Leave, Observe>;
 
 // --- server → client ---------------------------------------------------------
 
@@ -74,8 +81,42 @@ struct OpponentLeft {
   bool operator==(const OpponentLeft &) const = default;
 };
 
-using ServerMessage =
-    std::variant<Queued, Start, OpponentMoved, MoveRejected, Finished, OpponentLeft>;
+// The server refused the connection because it is at its configured capacity.
+// Sent once, immediately before the server closes the socket.
+struct ServerFull {
+  bool operator==(const ServerFull &) const = default;
+};
+
+// --- live feed (for observers) ----------------------------------------------
+
+// Current server-wide counts, pushed to observers whenever they change.
+struct Presence {
+  int online = 0;  // everyone the server is tracking (racing + queued + observing)
+  int racing = 0;  // players currently in a match
+  int waiting = 0; // players in the matchmaking queue
+  bool operator==(const Presence &) const = default;
+};
+
+// A match just began (or, on subscribe, is already in progress).
+struct MatchStarted {
+  int matchId = 0;
+  int gridSize = 4;
+  std::string playerA;
+  std::string playerB;
+  bool operator==(const MatchStarted &) const = default;
+};
+
+// A match ended (a solve or a walkover).
+struct MatchEnded {
+  int matchId = 0;
+  std::string winnerName;
+  int gridSize = 4;
+  int durationSeconds = 0;
+  bool operator==(const MatchEnded &) const = default;
+};
+
+using ServerMessage = std::variant<Queued, Start, OpponentMoved, MoveRejected, Finished,
+                                   OpponentLeft, ServerFull, Presence, MatchStarted, MatchEnded>;
 
 // --- line codec --------------------------------------------------------------
 

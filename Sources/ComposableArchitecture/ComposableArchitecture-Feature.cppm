@@ -40,6 +40,34 @@ public:
 
   void addBody(Body body) { bodies_.push_back(std::move(body)); }
 
+  // A C++ port of TCA 2.0's `.onChange(of:)` trigger. `project(state)` derives
+  // a value; whenever it differs from the value seen after the previous update,
+  // `handler(oldValue, newValue, state, store)` runs. The baseline is seeded
+  // from the post-`onMount` state, so a change caused by the very first action
+  // still fires (matching TCA, where the initial state is the baseline);
+  // `onMount`'s own effect on the value never fires. Implemented as a body that
+  // runs in append order, so chain it AFTER the `Update`/`Scope` bodies whose
+  // effect you want to observe. The per-feature baseline lives in a
+  // `shared_ptr` captured by the closures, so it persists across updates (the
+  // feature outlives individual actions).
+  template <typename Project, typename Handler>
+  Feature &onChange(Project project, Handler handler) {
+    using Value = std::decay_t<std::invoke_result_t<Project, const State &>>;
+    auto previous = std::make_shared<std::optional<Value>>();
+    onMount_.push_back([project, previous](State &state, Store<State, Action> &) {
+      *previous = project(std::as_const(state));
+    });
+    bodies_.push_back([project = std::move(project), handler = std::move(handler),
+                       previous](State &state, const Action &, Store<State, Action> &store) {
+      Value current = project(std::as_const(state));
+      if (previous->has_value() && !(**previous == current)) {
+        handler(**previous, current, state, store);
+      }
+      *previous = std::move(current);
+    });
+    return *this;
+  }
+
   // Invoked by the runtime / scope.
   void update(State &state, const Action &action, Store<State, Action> &store) const {
     for (const auto &body : bodies_)

@@ -41,6 +41,12 @@ struct Client {
 
   // Sends a move on the current connection. A no-op when not connected.
   std::function<void(int index)> sendMove = [](int) {};
+
+  // Connects as an observer (sends `Observe`) and streams the live feed
+  // (Presence / MatchStarted / MatchEnded) into `onEvent` until the server
+  // closes or `stop` is requested. Blocking — run it inside `store.addTask`.
+  std::function<void(std::function<void(Event)> onEvent, std::stop_token stop)> observe =
+      [](std::function<void(Event)> onEvent, std::stop_token) { onEvent(Failed{}); };
 };
 
 struct Key : Dependencies::DependencyKey<Key, Client> {

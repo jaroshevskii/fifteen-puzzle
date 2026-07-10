@@ -284,6 +284,10 @@ add_module_library(MultiplayerCore Sources/MultiplayerCore/MultiplayerCore.cppm)
 target_sources(MultiplayerCore PRIVATE Sources/MultiplayerCore/MultiplayerCore.cpp)
 target_link_libraries(MultiplayerCore PRIVATE nlohmann_json::nlohmann_json)
 
+# Elo ratings for competitive play: client projects ±Δ, server applies the same
+# function on verified results. Pure and header-only (no impl unit).
+add_module_library(RatingCore Sources/RatingCore/RatingCore.cppm)
+
 # Minimal blocking TCP wrapper (POSIX/Winsock confined to the impl unit); the
 # transport under HttpServer, GameServer and MultiplayerClientLive.
 add_module_library(TcpSocket Sources/TcpSocket/TcpSocket.cppm)
@@ -394,18 +398,33 @@ target_link_libraries(LeaderboardFeatureView PUBLIC LeaderboardFeature raylib)
 add_module_library(MultiplayerFeature Sources/Features/Multiplayer/MultiplayerFeature.cppm)
 target_sources(MultiplayerFeature PRIVATE Sources/Features/Multiplayer/MultiplayerFeature.cpp)
 target_link_libraries(MultiplayerFeature PUBLIC ComposableArchitecture MultiplayerClient MultiplayerCore PuzzleCore)
+# Same Clang + `import std` codegen fragility this file guards against at -O0
+# (see the CMAKE_BUILD_TYPE note up top): this feature's `startSession` path
+# miscompiles at RelWithDebInfo's -O2 into a spurious stack-canary abort. It is
+# correct at -O3 and clean under ASan/UBSan, so pin this target (and its test
+# below) to -O3 on Clang/GCC. Bump other targets here if they ever exhibit it.
+if(NOT MSVC)
+  target_compile_options(MultiplayerFeature PRIVATE -O3)
+endif()
 
 add_module_library(MultiplayerFeatureView Sources/Features/Multiplayer/MultiplayerFeatureView.cppm)
 target_link_libraries(MultiplayerFeatureView PUBLIC MultiplayerFeature PuzzleCore raylib)
 
+add_module_library(LiveFeature Sources/Features/Live/LiveFeature.cppm)
+target_sources(LiveFeature PRIVATE Sources/Features/Live/LiveFeature.cpp)
+target_link_libraries(LiveFeature PUBLIC ComposableArchitecture MultiplayerClient MultiplayerCore)
+
+add_module_library(LiveFeatureView Sources/Features/Live/LiveFeatureView.cppm)
+target_link_libraries(LiveFeatureView PUBLIC LiveFeature raylib)
+
 add_module_library(AppFeature Sources/Features/App/AppFeature.cppm)
 target_sources(AppFeature PRIVATE Sources/Features/App/AppFeature.cpp)
 target_link_libraries(AppFeature
-  PUBLIC PuzzleFeature LeaderboardFeature MultiplayerFeature SettingsFeature SavedGame SharedModels Sharing AppSettings
+  PUBLIC PuzzleFeature LeaderboardFeature MultiplayerFeature LiveFeature SettingsFeature SavedGame SharedModels Sharing AppSettings
   PRIVATE DatabaseClient ApiClient)
 
 add_module_library(AppFeatureView Sources/Features/App/AppFeatureView.cppm)
-target_link_libraries(AppFeatureView PUBLIC AppFeature PuzzleFeatureView LeaderboardFeatureView MultiplayerFeatureView SettingsFeatureView MenuView raylib)
+target_link_libraries(AppFeatureView PUBLIC AppFeature PuzzleFeatureView LeaderboardFeatureView MultiplayerFeatureView LiveFeatureView SettingsFeatureView MenuView raylib)
 
 # --- Server -------------------------------------------------------------------
 # The server side of the monorepo (isowords' Sources/server): the HTTP API and
@@ -448,6 +467,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   SolverClient SolverClientLive
   ApiClient ApiClientLive
   MultiplayerClient MultiplayerClientLive MultiplayerCore
+  LiveFeature LiveFeatureView
   DatabaseClient DatabaseClientLive
   Sharing AppSettings AppSettingsLive
   SavedGame SavedGameLive
@@ -541,9 +561,24 @@ target_link_libraries(GameServerTests PRIVATE GameServer MultiplayerCore PuzzleC
 
 add_test(NAME GameServerTests COMMAND GameServerTests)
 
+add_executable(RatingCoreTests EXCLUDE_FROM_ALL Tests/RatingCoreTests.cpp)
+set_target_properties(RatingCoreTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(RatingCoreTests PRIVATE RatingCore)
+
+add_test(NAME RatingCoreTests COMMAND RatingCoreTests)
+
+add_executable(LiveFeatureTests EXCLUDE_FROM_ALL Tests/LiveFeatureTests.cpp)
+set_target_properties(LiveFeatureTests PROPERTIES CXX_MODULE_STD ON)
+target_link_libraries(LiveFeatureTests PRIVATE LiveFeature MultiplayerClient MultiplayerCore ComposableArchitecture)
+
+add_test(NAME LiveFeatureTests COMMAND LiveFeatureTests)
+
 add_executable(MultiplayerFeatureTests EXCLUDE_FROM_ALL Tests/MultiplayerFeatureTests.cpp)
 set_target_properties(MultiplayerFeatureTests PROPERTIES CXX_MODULE_STD ON)
 target_link_libraries(MultiplayerFeatureTests PRIVATE
   MultiplayerFeature MultiplayerClient MultiplayerCore PuzzleCore ComposableArchitecture)
+if(NOT MSVC)
+  target_compile_options(MultiplayerFeatureTests PRIVATE -O3) # see MultiplayerFeature note
+endif()
 
 add_test(NAME MultiplayerFeatureTests COMMAND MultiplayerFeatureTests)

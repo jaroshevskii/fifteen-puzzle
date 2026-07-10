@@ -24,6 +24,7 @@ void startSession(State &state, ComposableArchitecture::Store<State, Action> &st
   state.startDate = std::nullopt;
   state.youWon = false;
   state.opponentLeft = false;
+  state.serverWasFull = false;
   state.winnerName.clear();
   state.finalDurationSeconds = 0;
 
@@ -83,6 +84,12 @@ void handleServerMessage(State &state, const MultiplayerCore::ServerMessage &mes
           state.opponentLeft = true;
           state.winnerName = state.playerName;
           state.finalDurationSeconds = state.secondsElapsed;
+          state.startDate = std::nullopt;
+        } else if constexpr (std::is_same_v<V, MultiplayerCore::ServerFull>) {
+          // The server refused us at capacity; surface it distinctly so the
+          // view can say "try again later" rather than a generic failure.
+          state.phase = Phase::failed;
+          state.serverWasFull = true;
           state.startDate = std::nullopt;
         }
       },

@@ -13,6 +13,7 @@ export namespace ServerBootstrap {
 struct EnvVars {
   int httpPort = 8080;                                 // FIFTEEN_SERVER_PORT
   int multiplayerPort = 8091;                          // FIFTEEN_SERVER_MP_PORT
+  int maxConnections = 256;                            // FIFTEEN_SERVER_MAX_CONN (<=0 = unbounded)
   std::string databasePath = "fifteen-server.sqlite3"; // FIFTEEN_SERVER_DATABASE
 };
 
@@ -35,6 +36,7 @@ inline EnvVars readEnvVars() {
   };
   env.httpPort = readInt("FIFTEEN_SERVER_PORT", env.httpPort);
   env.multiplayerPort = readInt("FIFTEEN_SERVER_MP_PORT", env.multiplayerPort);
+  env.maxConnections = readInt("FIFTEEN_SERVER_MAX_CONN", env.maxConnections);
   if (const char *path = std::getenv("FIFTEEN_SERVER_DATABASE"); path && *path) {
     env.databasePath = path;
   }

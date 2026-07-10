@@ -107,6 +107,38 @@ void drawCenteredText(std::string_view text, int y, int fontSize, Color color) {
            fontSize, color);
 }
 
+// The race opens with a 3-2-1-GO countdown. View-only: it stamps the raylib
+// clock when the phase first becomes `racing` and reports seconds elapsed, so
+// input can be gated and the overlay drawn without touching feature state.
+constexpr double kCountdown = 3.0;
+
+double countdownElapsed(const MultiplayerFeature::State &state) {
+  static bool wasRacing = false;
+  static double start = -1.0e9;
+  const bool racing = state.phase == Phase::racing;
+  if (racing && !wasRacing) {
+    start = GetTime();
+  }
+  wasRacing = racing;
+  return racing ? GetTime() - start : 1.0e9;
+}
+
+bool countingDown(const MultiplayerFeature::State &state) {
+  return countdownElapsed(state) < kCountdown;
+}
+
+void drawCountdown(double elapsed) {
+  DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{0, 0, 0, 150});
+  const double remaining = kCountdown - elapsed;
+  const std::string label =
+      remaining > 0.0 ? std::to_string(static_cast<int>(remaining) + 1) : "GO";
+  // Each number/GO scales down over its second — a little pop.
+  const double frac = remaining > 0.0 ? std::fmod(remaining, 1.0) : (elapsed - kCountdown) / 0.6;
+  const int fontSize = static_cast<int>(200 - 60 * (1.0 - frac));
+  const Color color = remaining > 0.0 ? WHITE : GREEN;
+  drawCenteredText(label, GetScreenHeight() / 2 - fontSize / 2, std::max(40, fontSize), color);
+}
+
 void drawStatusScreen(std::string_view title, std::string_view subtitle) {
   const int height = GetScreenHeight();
   drawCenteredText(title, height / 2 - 40, 40, WHITE);
@@ -181,6 +213,9 @@ std::vector<MultiplayerFeature::Action> collectActions(const MultiplayerFeature:
 
   switch (state.phase) {
   case Phase::racing: {
+    if (countingDown(state)) {
+      break; // input gated until GO
+    }
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       const Vector2 mouse = GetMousePosition();
       for (int index = 0; index < static_cast<int>(state.tiles.size()); ++index) {
@@ -222,7 +257,10 @@ void draw(const MultiplayerFeature::State &state) {
     drawStatusScreen("Multiplayer", "Waiting for an opponent…   (Esc to leave)");
     return;
   case Phase::failed:
-    drawStatusScreen("Connection lost", "R / Enter to retry — Esc to leave");
+    drawStatusScreen(state.serverWasFull ? "Server full" : "Connection lost",
+                     state.serverWasFull
+                         ? "Too many players right now — R / Enter to retry, Esc to leave"
+                         : "R / Enter to retry — Esc to leave");
     return;
   case Phase::finished: {
     const std::string title = state.youWon ? "You won!" : "You lost";
@@ -253,6 +291,10 @@ void draw(const MultiplayerFeature::State &state) {
 
   if (MultiplayerFeature::isBoardSolved(state)) {
     drawCenteredText("Solved — waiting for the referee…", GetScreenHeight() - 40, 20, GREEN);
+  }
+
+  if (const double elapsed = countdownElapsed(state); elapsed < kCountdown + 0.6) {
+    drawCountdown(elapsed); // 3-2-1-GO, lingering briefly on GO
   }
 }
 

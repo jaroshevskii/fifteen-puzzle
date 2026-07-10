@@ -106,7 +106,6 @@ void testWinClearsSavedGameAndShowsVictory() {
           s.puzzle.isGameOver = true;
           s.puzzle.lastDuration = 0;
           s.puzzle.startDate = std::nullopt;
-          s.didSubmitCurrentWin = true;
           s.savedGame.set(std::nullopt);
           s.lastSavedSig = std::nullopt;
           s.destination = AppFeature::GameOverScreen{.durationSeconds = 0, .moves = 1};
@@ -166,7 +165,6 @@ void testPlayAgainReturnsToGame() {
         state.puzzle.startDate = 0.0; // skip onMount reshuffle
         state.puzzle.isGameOver = true;
         state.puzzle.lastDuration = 5;
-        state.didSubmitCurrentWin = true;
         state.destination = AppFeature::GameOverScreen{.durationSeconds = 5, .moves = 0};
 
         TestStore<AppFeature::State, AppFeature::Action> store(std::move(state), AppFeature::body);
@@ -179,7 +177,6 @@ void testPlayAgainReturnsToGame() {
           expected.puzzle = store.state().puzzle;
           expected.savedGame = store.state().savedGame;
           expected.lastSavedSig = store.state().lastSavedSig;
-          expected.didSubmitCurrentWin = store.state().didSubmitCurrentWin;
         });
 
         expect(!store.failed(), "Play Again returns to a fresh game (no Game Over bounce)");
