@@ -14,7 +14,7 @@ repository, one build, with the game, the backend (`FifteenServer`) and the
 modules they share (game rules, API routes, the multiplayer protocol) defined
 once and imported by both sides.
 
-<img src="Bootstrap/cover.png" width="640" alt="15 Puzzle — slide, race, win">
+<img src="Bootstrap/banner.png" width="640" alt="15 Puzzle — slide, race, win">
 
 ## Screenshots
 
