@@ -1,0 +1,75 @@
+<!-- itch.io Description — STYLED variant. Paste into the Description editor
+     (HTML/source view). itch keeps inline style="" but strips <style> blocks
+     and class= , so everything here is inline. Every section is a dark card so
+     the light text stays readable whatever page theme is set. If itch ever
+     drops a style, docs/itch-description.html is the plain fallback.
+     Insert Bootstrap/banner.png at the very top via the editor's image button. -->
+
+<div style="background:#141026;border:1px solid #2a2340;border-radius:14px;padding:22px 24px;margin:0 0 18px;color:#e9e2f7;font-size:17px;line-height:1.6">
+  <span style="color:#ffa100;font-weight:800">15 Puzzle</span> is the classic 4&times;4 sliding puzzle, rebuilt as a small but complete game: slide the tiles back into order as fast as you can, then climb the leaderboards &mdash; solo, or head-to-head against another player in real time.
+</div>
+
+<div style="background:#141026;border:1px solid #2a2340;border-radius:14px;padding:18px 24px;margin:0 0 18px;color:#e9e2f7;line-height:1.6">
+  <h2 style="color:#ffa100;margin:0 0 12px;font-size:22px">Features</h2>
+  <ul style="margin:0;padding-left:22px">
+    <li style="margin:6px 0">🧩 <strong style="color:#ffbe5c">Sliding puzzle, 4&times;4 up to 13&times;13</strong> &mdash; pick your difficulty with the number keys.</li>
+    <li style="margin:6px 0">⏱️ <strong style="color:#ffbe5c">Timer, move counter and auto-solver</strong> &mdash; press <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">H</code> to watch it solve itself.</li>
+    <li style="margin:6px 0">🏆 <strong style="color:#ffbe5c">Leaderboards</strong> &mdash; local by default; online when you connect to a server (the game ships with one you can host &mdash; no account, no always-on service).</li>
+    <li style="margin:6px 0">⚔️ <strong style="color:#ffbe5c">Realtime multiplayer races</strong> &mdash; you and an opponent get the <em>same</em> board; first to solve wins. Watch a live mini-preview of their board as they play.</li>
+    <li style="margin:6px 0">📡 <strong style="color:#ffbe5c">Live Games feed</strong> &mdash; see who&rsquo;s playing on that server and which races are happening right now.</li>
+    <li style="margin:6px 0">✨ Sliding-tile animation, a 3-2-1 countdown before each race, and a little victory confetti.</li>
+  </ul>
+</div>
+
+<div style="background:#141026;border:1px solid #2a2340;border-radius:14px;padding:18px 24px;margin:0 0 18px;color:#e9e2f7;line-height:2">
+  <h2 style="color:#ffa100;margin:0 0 12px;font-size:22px">Controls</h2>
+  <p style="margin:0 0 8px">Move a tile with a <strong>mouse click</strong> or the <strong>arrow keys</strong>. Resize the board with <strong>0</strong>&hellip;<strong>9</strong>.</p>
+  <span style="display:inline-block;background:#1c1730;border:1px solid #7e2790;border-radius:16px;padding:3px 12px;margin:3px;color:#e9e2f7;font-weight:600">0&ndash;9 &nbsp;board size</span>
+  <span style="display:inline-block;background:#1c1730;border:1px solid #7e2790;border-radius:16px;padding:3px 12px;margin:3px;color:#e9e2f7;font-weight:600">S &nbsp;shuffle</span>
+  <span style="display:inline-block;background:#1c1730;border:1px solid #7e2790;border-radius:16px;padding:3px 12px;margin:3px;color:#e9e2f7;font-weight:600">R &nbsp;restart</span>
+  <span style="display:inline-block;background:#1c1730;border:1px solid #7e2790;border-radius:16px;padding:3px 12px;margin:3px;color:#e9e2f7;font-weight:600">H &nbsp;auto-solve</span>
+  <span style="display:inline-block;background:#1c1730;border:1px solid #7e2790;border-radius:16px;padding:3px 12px;margin:3px;color:#e9e2f7;font-weight:600">M &nbsp;sound</span>
+  <span style="display:inline-block;background:#1c1730;border:1px solid #7e2790;border-radius:16px;padding:3px 12px;margin:3px;color:#e9e2f7;font-weight:600">Enter &nbsp;select</span>
+  <span style="display:inline-block;background:#1c1730;border:1px solid #7e2790;border-radius:16px;padding:3px 12px;margin:3px;color:#e9e2f7;font-weight:600">Esc &nbsp;back</span>
+</div>
+
+<div style="background:#141026;border:1px solid #2a2340;border-radius:14px;padding:18px 24px;margin:0 0 18px;color:#e9e2f7;line-height:1.6">
+  <h2 style="color:#ffa100;margin:0 0 12px;font-size:22px">Playing together <span style="color:#9a8cbf;font-weight:400;font-size:16px">(multiplayer &amp; online leaderboard)</span></h2>
+  <p style="margin:0 0 14px">Multiplayer and the online leaderboard run through a small server that ships <strong style="color:#ffbe5c">inside the download</strong> (<code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">FifteenServer</code> + <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">run-server.sh</code>). Single-player and the local leaderboard work offline with no setup.</p>
+
+  <p style="margin:0 0 6px"><strong style="color:#ffa100">1. One player hosts.</strong> Extract the archive and start the server &mdash; macOS / Linux: <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">./run-server.sh</code>, Windows: run <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">FifteenServer.exe</code>. It listens on <strong>8080</strong> (leaderboard) and <strong>8091</strong> (multiplayer).</p>
+
+  <p style="margin:14px 0 6px"><strong style="color:#ffa100">2. The other player connects to the host&rsquo;s IP.</strong> Same Wi-Fi / LAN? Use the host&rsquo;s local IP. Over the internet? Share one private network with a virtual-LAN app &mdash; <strong>Radmin VPN</strong> or <strong>Hamachi</strong> (classic, free), or the more modern <strong>Tailscale</strong> / <strong>ZeroTier</strong> &mdash; and use the host&rsquo;s virtual IP.</p>
+
+  <p style="margin:14px 0 6px"><strong style="color:#ffa100">3. Point the game at the host</strong> with two environment variables (replace <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">HOST_IP</code>):</p>
+<pre style="background:#0d0b14;border:1px solid #2a2340;border-radius:8px;padding:14px 16px;margin:0 0 10px;color:#ffcf8a;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:14px"><code># macOS
+FIFTEEN_API_BASE_URL=http://HOST_IP:8080 FIFTEEN_MP_HOST=HOST_IP \
+  ./FifteenPuzzle.app/Contents/MacOS/FifteenPuzzle
+
+# Linux
+FIFTEEN_API_BASE_URL=http://HOST_IP:8080 FIFTEEN_MP_HOST=HOST_IP \
+  ./FifteenPuzzle</code></pre>
+<pre style="background:#0d0b14;border:1px solid #2a2340;border-radius:8px;padding:14px 16px;margin:0 0 12px;color:#ffcf8a;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:14px"><code># Windows (Command Prompt)
+set FIFTEEN_API_BASE_URL=http://HOST_IP:8080
+set FIFTEEN_MP_HOST=HOST_IP
+FifteenPuzzle.exe</code></pre>
+
+  <p style="margin:0 0 12px">The host launches the game normally (it defaults to <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">localhost</code>). Then both pick <strong>Multiplayer</strong> and the race begins. (Firewalled? Allow <strong>8080</strong> and <strong>8091</strong> on the host.)</p>
+
+  <div style="border-left:4px solid #ffa100;background:#1a1330;border-radius:0 8px 8px 0;padding:10px 16px;color:#c9bce6">
+    The host must keep <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">FifteenServer</code> running for the session. Without a reachable server, the game still plays fine solo and keeps a local leaderboard.
+  </div>
+</div>
+
+<div style="background:#141026;border:1px solid #2a2340;border-radius:14px;padding:18px 24px;margin:0 0 18px;color:#e9e2f7;line-height:1.6">
+  <h2 style="color:#ffa100;margin:0 0 12px;font-size:22px">Platform notes</h2>
+  <ul style="margin:0;padding-left:22px">
+    <li style="margin:6px 0"><strong style="color:#ffbe5c">macOS</strong> &mdash; the app isn&rsquo;t code-signed, so Gatekeeper warns on first launch. Right-click &rarr; <strong>Open</strong>, or run <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">xattr -dr com.apple.quarantine FifteenPuzzle.app</code> once.</li>
+    <li style="margin:6px 0"><strong style="color:#ffbe5c">Windows</strong> &mdash; SmartScreen may warn (unsigned). If it won&rsquo;t start, install the latest <strong>Microsoft Visual C++ Redistributable</strong>.</li>
+    <li style="margin:6px 0"><strong style="color:#ffbe5c">Linux</strong> &mdash; needs a recent <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">libcurl</code> (present on most desktops).</li>
+  </ul>
+</div>
+
+<div style="background:#141026;border:1px solid #2a2340;border-radius:14px;padding:16px 24px;margin:0;color:#9a8cbf;font-size:15px;line-height:1.6">
+  <strong style="color:#e9e2f7">Made with</strong> &mdash; open source (MIT), game <strong>and</strong> server: <a href="https://github.com/jaroshevskii/fifteen-puzzle" style="color:#ffa100">github.com/jaroshevskii/fifteen-puzzle</a>. Built with AI-assisted tooling (code and the vector art were produced with LLM help); there are no image-model or AI-generated audio assets.
+</div>
