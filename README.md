@@ -12,11 +12,35 @@ repository, one build, with the game, the backend (`FifteenServer`) and the
 modules they share (game rules, API routes, the multiplayer protocol) defined
 once and imported by both sides.
 
-<img width="488" height="520" alt="image" src="https://github.com/user-attachments/assets/8b4296a7-e054-4c21-8e27-a9fba1c9a2e4" />
+<p align="center">
+  <img src="Bootstrap/icon-1024.png" width="96" alt="15 Puzzle app icon">
+</p>
 
-# Demo
+<p align="center">
+  <img src="Bootstrap/cover.png" width="640" alt="15 Puzzle — slide, race, win">
+</p>
+
+## Screenshots
+
+<p align="center">
+  <img src="Bootstrap/screenshots/01-gameplay.png" width="49%" alt="Solo gameplay — the board and timer">
+  <img src="Bootstrap/screenshots/02-multiplayer.png" width="49%" alt="Realtime multiplayer race with a live preview of the opponent's board">
+</p>
+<p align="center">
+  <img src="Bootstrap/screenshots/03-live-games.png" width="49%" alt="Live Games feed — online counts, matches in progress, recent finishes">
+  <img src="Bootstrap/screenshots/04-leaderboard.png" width="49%" alt="Leaderboard">
+</p>
+<p align="center">
+  <img src="Bootstrap/screenshots/05-victory.png" width="49%" alt="Victory screen">
+</p>
+
+*(UI renders, faithful to the game — sources in `Bootstrap/`: [icon.svg](Bootstrap/icon.svg), [cover.svg](Bootstrap/cover.svg), and `make-screenshots.py`.)*
+
+## Demo
 
 https://github.com/user-attachments/assets/27aa40b4-fad5-4d7b-8968-d04e3f46d064
+
+<img width="488" alt="15 Puzzle board (in-game capture)" src="https://github.com/user-attachments/assets/8b4296a7-e054-4c21-8e27-a9fba1c9a2e4" />
 
 ## Overview
 

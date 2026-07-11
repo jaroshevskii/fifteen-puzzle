@@ -79,6 +79,14 @@ platform release now ships **both** the game and its server.
 
 - Release archives now contain `FifteenPuzzle`, `FifteenServer` and
   `run-server.sh` per platform.
+- macOS ships as a proper `FifteenPuzzle.app` bundle with an icon
+  (`Bootstrap/make-macos-app.sh` + `Bootstrap/icon.svg`), so it launches from
+  Finder and the itch.io app.
+- Optional **itch.io auto-publish**: set repo variables `ITCH_USER` /
+  `ITCH_GAME` and the `BUTLER_API_KEY` secret, and the release workflow pushes
+  each platform to its itch channel via butler. See `docs/itch-page.md` for the
+  store page copy (including how to play multiplayer over Radmin VPN / Hamachi /
+  Tailscale / ZeroTier).
 - New `Bootstrap/e2e.py` end-to-end smoke test (HTTP API + a scripted two-client
   race) runs against the real server binary on macOS and Linux CI.
 
