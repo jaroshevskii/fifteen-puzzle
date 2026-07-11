@@ -1,0 +1,32 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- App icon for 15 Puzzle. Editable source; Bootstrap/icon-1024.png is the
+       rendered raster the macOS .app build converts to .icns. Palette matches
+       the game: near-black background, purple board, orange tiles. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#17131d"/>
+      <stop offset="1" stop-color="#0d0b11"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded-square backdrop (leaves a margin for the macOS icon grid). -->
+  <rect x="72" y="72" width="880" height="880" rx="196" fill="url(#bg)"/>
+
+  <!-- The board panel. -->
+  <rect x="196" y="196" width="632" height="632" rx="40" fill="#701f7e"/>
+
+  <!-- 2x2 tiles: "1" "5" on top, an orange blank and the empty slot below —
+       reads as "15" and a sliding puzzle. -->
+  <!-- top-left: 1 -->
+  <rect x="236" y="236" width="264" height="264" rx="28" fill="#ffa100"/>
+  <text x="368" y="368" font-family="Helvetica, Arial, sans-serif" font-weight="700"
+        font-size="200" fill="#17131d" text-anchor="middle" dominant-baseline="central">1</text>
+  <!-- top-right: 5 -->
+  <rect x="524" y="236" width="264" height="264" rx="28" fill="#ffa100"/>
+  <text x="656" y="368" font-family="Helvetica, Arial, sans-serif" font-weight="700"
+        font-size="200" fill="#17131d" text-anchor="middle" dominant-baseline="central">5</text>
+  <!-- bottom-left: orange blank tile -->
+  <rect x="236" y="524" width="264" height="264" rx="28" fill="#ffa100"/>
+  <!-- bottom-right: the empty slot (recessed purple) -->
+  <rect x="524" y="524" width="264" height="264" rx="28" fill="#5a1866"/>
+</svg>

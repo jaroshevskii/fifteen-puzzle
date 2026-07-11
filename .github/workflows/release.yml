@@ -105,8 +105,26 @@ jobs:
       # the executable bit through download/extraction — a bare binary served over
       # HTTP loses its +x and macOS shows it as a "Document" that won't run; tar.gz
       # (and zip on Windows) preserve it.
-      - name: Package (macOS/Linux)
-        if: runner.os != 'Windows'
+      # macOS ships the game as a proper .app bundle (icon + itch-app launch),
+      # with the server + its launcher alongside.
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p dist
+          stage="${{ matrix.stem }}"   # stem-named dir; keeps the archive naming scheme
+          rm -rf "$stage" && mkdir -p "$stage"
+          version="${{ github.event.release.tag_name || '0.0.0' }}"
+          version="${version#v}"       # CFBundleShortVersionString wants no leading 'v'
+          bash Bootstrap/make-macos-app.sh build/FifteenPuzzle Bootstrap/icon-1024.png \
+            "$stage/FifteenPuzzle.app" "$version"
+          cp "build/FifteenServer" "$stage/FifteenServer"
+          cp "Bootstrap/run-server.sh" "$stage/run-server.sh"
+          chmod +x "$stage/FifteenServer" "$stage/run-server.sh"
+          tar -czf "dist/${{ matrix.archive }}" "$stage"
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           mkdir -p dist
@@ -142,3 +160,51 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: dist/${{ matrix.archive }}
+
+  # Publish the built archives to itch.io via butler, one channel per platform.
+  # Opt-in: set repo variables ITCH_USER + ITCH_GAME and the BUTLER_API_KEY
+  # secret (Settings → Secrets and variables → Actions). Skipped otherwise.
+  # Runs on one Linux runner (native butler), so it needs no per-OS butler.
+  publish-itch:
+    name: Publish to itch.io
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ vars.ITCH_GAME != '' && (github.event_name == 'release' || github.event_name == 'workflow_dispatch') }}
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: artifacts
+
+      - name: Install butler
+        run: |
+          curl -sL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip
+          chmod +x butler
+          ./butler -V
+
+      - name: Push channels
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          target="${{ vars.ITCH_USER }}/${{ vars.ITCH_GAME }}"
+          version="${{ github.event.release.tag_name || github.run_number }}"
+          # Extract each platform archive to a folder and push it as its channel;
+          # pushing the unpacked tree lets the itch app generate patches and run
+          # the game (the .app on macOS) directly.
+          publish() { # <archive-filename> <itch-channel>
+            local file
+            file="$(ls artifacts/*/"$1" 2>/dev/null | head -1 || true)"
+            if [ -z "$file" ]; then
+              echo "::warning::no artifact for channel $2 ($1)"; return
+            fi
+            rm -rf "stage-$2" && mkdir -p "stage-$2"
+            case "$file" in
+              *.zip)    unzip -q "$file" -d "stage-$2" ;;
+              *.tar.gz) tar -xzf "$file" -C "stage-$2" ;;
+            esac
+            ./butler push "stage-$2" "$target:$2" --userversion "$version"
+          }
+          publish "FifteenPuzzle-macos-arm64.tar.gz"   osx
+          publish "FifteenPuzzle-linux-x86_64.tar.gz"  linux
+          publish "FifteenPuzzle-windows-x86_64.zip"   windows
