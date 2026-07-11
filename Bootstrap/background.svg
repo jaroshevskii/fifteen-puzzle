@@ -1,0 +1,47 @@
+<svg width="1920" height="1200" viewBox="0 0 1920 1200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Page background for itch.io (Edit theme → Background; set to cover /
+       center, no-repeat). Renders to Bootstrap/background.png. Deliberately
+       dark and low-contrast so page text stays readable — a faint puzzle-tile
+       motif concentrated toward the edges, clean through the middle. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0a0810"/>
+      <stop offset="0.5" stop-color="#0d0b14"/>
+      <stop offset="1" stop-color="#120d20"/>
+    </linearGradient>
+    <radialGradient id="vignette" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000000" stop-opacity="0.55"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1920" height="1200" fill="url(#bg)"/>
+
+  <!-- faint scattered tiles, low opacity, kept off the central content column -->
+  <g fill="#ffa100" opacity="0.05">
+    <rect x="70"   y="120"  width="150" height="150" rx="20" transform="rotate(-8 145 195)"/>
+    <rect x="250"  y="360"  width="110" height="110" rx="16" transform="rotate(12 305 415)"/>
+    <rect x="120"  y="820"  width="170" height="170" rx="22" transform="rotate(6 205 905)"/>
+    <rect x="1690" y="180"  width="150" height="150" rx="20" transform="rotate(10 1765 255)"/>
+    <rect x="1560" y="470"  width="110" height="110" rx="16" transform="rotate(-14 1615 525)"/>
+    <rect x="1700" y="820"  width="180" height="180" rx="24" transform="rotate(-6 1790 910)"/>
+  </g>
+  <g fill="#7e2790" opacity="0.07">
+    <rect x="250"  y="80"   width="120" height="120" rx="16" transform="rotate(14 310 140)"/>
+    <rect x="60"   y="520"  width="140" height="140" rx="18" transform="rotate(-10 130 590)"/>
+    <rect x="1560" y="90"   width="130" height="130" rx="18" transform="rotate(-12 1625 155)"/>
+    <rect x="1740" y="560"  width="120" height="120" rx="16" transform="rotate(8 1800 620)"/>
+    <rect x="1520" y="980"  width="150" height="150" rx="20" transform="rotate(16 1595 1055)"/>
+  </g>
+
+  <!-- a couple of dim numbered tiles, as a subtle brand nod -->
+  <g opacity="0.06" font-family="Helvetica, Arial, sans-serif" font-weight="800" fill="#ffa100"
+     text-anchor="middle">
+    <rect x="150"  y="250"  width="150" height="150" rx="20" fill="#ffa100" opacity="0.6"/>
+    <text x="225"  y="352"  font-size="90" fill="#0d0b14">1</text>
+    <rect x="1660" y="360"  width="150" height="150" rx="20" fill="#ffa100" opacity="0.6"/>
+    <text x="1735" y="462"  font-size="90" fill="#0d0b14">5</text>
+  </g>
+
+  <rect width="1920" height="1200" fill="url(#vignette)"/>
+</svg>

@@ -31,6 +31,18 @@ page description. Adjust names/links to taste.
   representative renders faithful to the real UI (same palette/fonts); swap for
   raw in-game captures anytime.
 
+### Theme — banner & background
+
+itch has no dedicated "banner" field, so use these two:
+
+- **Banner** (`Bootstrap/banner.png`, 1920×480): paste it as the **first image
+  at the top of the Description** editor — it becomes the page's hero strip.
+- **Background** (`Bootstrap/background.png`, 1920×1200): on the saved project
+  page click **Edit theme** → **Background** → upload it, set **image position:
+  cover** and **no repeat**; set the theme **background color** to `#0a0810`
+  (matches the image edges) and keep light body text. It's intentionally dark
+  with the motif at the edges, so the centred content column stays readable.
+
 ### Uploads (mark platform per file; "This file will be run in the browser": OFF)
 
 - `FifteenPuzzle-macos-arm64.tar.gz` → platform **macOS**
