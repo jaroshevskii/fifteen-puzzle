@@ -36,8 +36,6 @@ once and imported by both sides.
 
 https://github.com/user-attachments/assets/27aa40b4-fad5-4d7b-8968-d04e3f46d064
 
-<img width="488" alt="15 Puzzle board (in-game capture)" src="https://github.com/user-attachments/assets/8b4296a7-e054-4c21-8e27-a9fba1c9a2e4" />
-
 ## Overview
 
 This project implements:
