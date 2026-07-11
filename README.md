@@ -1,3 +1,5 @@
+<img src="Bootstrap/icon-1024.png" width="96" alt="15 Puzzle app icon">
+
 # 15 Puzzle
 
 [![macOS](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/macos.yml/badge.svg)](https://github.com/jaroshevskii/fifteen-puzzle/actions/workflows/macos.yml)
@@ -12,13 +14,7 @@ repository, one build, with the game, the backend (`FifteenServer`) and the
 modules they share (game rules, API routes, the multiplayer protocol) defined
 once and imported by both sides.
 
-<p align="center">
-  <img src="Bootstrap/icon-1024.png" width="96" alt="15 Puzzle app icon">
-</p>
-
-<p align="center">
-  <img src="Bootstrap/cover.png" width="640" alt="15 Puzzle — slide, race, win">
-</p>
+<img src="Bootstrap/cover.png" width="640" alt="15 Puzzle — slide, race, win">
 
 ## Screenshots
 
