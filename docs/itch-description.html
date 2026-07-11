@@ -1,0 +1,78 @@
+<!-- itch.io Description — paste into the Description editor (it accepts HTML;
+     use the editor's HTML/source view). itch keeps semantic tags and strips
+     inline styles, so this uses plain tags only.
+     Tip: insert Bootstrap/banner.png at the very top via the editor's image
+     button (upload it there so it gets a real itch URL). -->
+
+<p><strong>15 Puzzle</strong> is the classic 4&times;4 sliding puzzle, rebuilt as a small but complete game: slide the tiles back into order as fast as you can, then climb the leaderboards &mdash; solo, or head-to-head against another player in real time.</p>
+
+<h2>Features</h2>
+<ul>
+  <li>🧩 <strong>Sliding puzzle, 4&times;4 up to 13&times;13</strong> &mdash; pick your difficulty with the number keys.</li>
+  <li>⏱️ <strong>Timer, move counter and auto-solver</strong> &mdash; press <code>H</code> to watch it solve itself.</li>
+  <li>🏆 <strong>Leaderboards</strong> &mdash; local by default; online when you connect to a server (the game ships with one you can host &mdash; no account, no always-on service).</li>
+  <li>⚔️ <strong>Realtime multiplayer races</strong> &mdash; you and an opponent get the <em>same</em> board; first to solve wins. Watch a live mini-preview of their board as they play. (Peer-hosted: one player runs the included server &mdash; see &ldquo;Playing together&rdquo;.)</li>
+  <li>📡 <strong>Live Games feed</strong> &mdash; see who&rsquo;s playing on that server and which races are happening right now.</li>
+  <li>✨ Sliding-tile animation, a 3-2-1 countdown before each race, and a little victory confetti.</li>
+</ul>
+
+<h2>Controls</h2>
+<ul>
+  <li>Move a tile: <strong>mouse click</strong> or <strong>arrow keys</strong></li>
+  <li>Resize the board: <code>0</code> (4&times;4) &hellip; <code>9</code> (13&times;13)</li>
+  <li>Shuffle: <code>S</code> &middot; Restart: <code>R</code> &middot; Auto-solve: <code>H</code> &middot; Sound: <code>M</code></li>
+  <li>Menus: arrow keys / mouse, <code>Enter</code> to select, <code>Esc</code> to go back</li>
+</ul>
+
+<h2>Playing together (multiplayer &amp; online leaderboard)</h2>
+<p>Multiplayer and the online leaderboard run through a small server that ships <strong>inside the download</strong> (<code>FifteenServer</code> + <code>run-server.sh</code>). Single-player and the local leaderboard work offline with no setup.</p>
+
+<p><strong>To race a friend:</strong></p>
+<ol>
+  <li>
+    <strong>One player hosts.</strong> Extract the archive and start the server:
+    <ul>
+      <li>macOS / Linux: <code>./run-server.sh</code></li>
+      <li>Windows: run <code>FifteenServer.exe</code></li>
+    </ul>
+    It listens on port <strong>8080</strong> (leaderboard) and <strong>8091</strong> (multiplayer).
+  </li>
+  <li>
+    <strong>The other player connects to the host&rsquo;s IP.</strong>
+    <ul>
+      <li><strong>Same Wi-Fi / LAN?</strong> Use the host&rsquo;s local IP directly.</li>
+      <li><strong>Over the internet?</strong> The simplest way is a virtual-LAN app so both machines share one private network &mdash; <strong>Radmin VPN</strong> or <strong>Hamachi</strong> (classic, free), or the more modern <strong>Tailscale</strong> / <strong>ZeroTier</strong>. Install it on both PCs, join the same network, and use the host&rsquo;s virtual IP.</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Point the game at the host</strong> by setting two environment variables before launching (replace <code>HOST_IP</code> with the host&rsquo;s LAN / Radmin / Hamachi / Tailscale IP):
+    <p>macOS / Linux:</p>
+<pre><code># macOS
+FIFTEEN_API_BASE_URL=http://HOST_IP:8080 FIFTEEN_MP_HOST=HOST_IP \
+  ./FifteenPuzzle.app/Contents/MacOS/FifteenPuzzle
+
+# Linux
+FIFTEEN_API_BASE_URL=http://HOST_IP:8080 FIFTEEN_MP_HOST=HOST_IP \
+  ./FifteenPuzzle</code></pre>
+    <p>Windows (Command Prompt):</p>
+<pre><code>set FIFTEEN_API_BASE_URL=http://HOST_IP:8080
+set FIFTEEN_MP_HOST=HOST_IP
+FifteenPuzzle.exe</code></pre>
+  </li>
+</ol>
+
+<p>The host can just launch the game normally (it defaults to <code>localhost</code>). Then both pick <strong>Multiplayer</strong> from the menu &mdash; you&rsquo;ll be matched and the race begins. (If the ports are firewalled, allow <strong>8080</strong> and <strong>8091</strong> on the host, or forward them.)</p>
+
+<blockquote>
+  <p>The host must keep <code>FifteenServer</code> running for the duration of the session. Without a reachable server, the game still plays fine solo and keeps a local leaderboard.</p>
+</blockquote>
+
+<h2>Platform notes</h2>
+<ul>
+  <li><strong>macOS:</strong> the app is <strong>not code-signed</strong>, so Gatekeeper will warn on first launch. Right-click the app &rarr; <strong>Open</strong> (then confirm), or run <code>xattr -dr com.apple.quarantine FifteenPuzzle.app</code> once.</li>
+  <li><strong>Windows:</strong> SmartScreen may warn (unsigned). If it won&rsquo;t start, install the latest <strong>Microsoft Visual C++ Redistributable</strong>.</li>
+  <li><strong>Linux:</strong> needs a recent <code>libcurl</code> (present on most desktops).</li>
+</ul>
+
+<h2>Made with</h2>
+<p>Open source (MIT), game <strong>and</strong> server: <a href="https://github.com/jaroshevskii/fifteen-puzzle">github.com/jaroshevskii/fifteen-puzzle</a>. Built with AI-assisted tooling (code and the vector art were produced with LLM help); there are no image-model or AI-generated audio assets.</p>
