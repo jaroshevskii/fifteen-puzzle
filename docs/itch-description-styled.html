@@ -64,7 +64,7 @@ FifteenPuzzle.exe</code></pre>
 <div style="background:#141026;border:1px solid #2a2340;border-radius:14px;padding:18px 24px;margin:0 0 18px;color:#e9e2f7;line-height:1.6">
   <h2 style="color:#ffa100;margin:0 0 12px;font-size:22px">Platform notes</h2>
   <ul style="margin:0;padding-left:22px">
-    <li style="margin:6px 0"><strong style="color:#ffbe5c">macOS</strong> &mdash; the app isn&rsquo;t code-signed, so Gatekeeper warns on first launch. Right-click &rarr; <strong>Open</strong>, or run <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">xattr -dr com.apple.quarantine FifteenPuzzle.app</code> once.</li>
+    <li style="margin:6px 0"><strong style="color:#ffbe5c">macOS</strong> &mdash; ad-hoc signed but not notarized, so Gatekeeper warns on first launch: <strong>right-click &rarr; Open</strong>. If a download ever shows <em>&ldquo;damaged&rdquo;</em>, clear quarantine once: <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">xattr -dr com.apple.quarantine FifteenPuzzle.app</code>.</li>
     <li style="margin:6px 0"><strong style="color:#ffbe5c">Windows</strong> &mdash; SmartScreen may warn (unsigned). If it won&rsquo;t start, install the latest <strong>Microsoft Visual C++ Redistributable</strong>.</li>
     <li style="margin:6px 0"><strong style="color:#ffbe5c">Linux</strong> &mdash; needs a recent <code style="background:#0d0b14;border-radius:4px;padding:1px 6px;color:#ffcf8a">libcurl</code> (present on most desktops).</li>
   </ul>

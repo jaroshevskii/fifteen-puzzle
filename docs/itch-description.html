@@ -69,7 +69,7 @@ FifteenPuzzle.exe</code></pre>
 
 <h2>Platform notes</h2>
 <ul>
-  <li><strong>macOS:</strong> the app is <strong>not code-signed</strong>, so Gatekeeper will warn on first launch. Right-click the app &rarr; <strong>Open</strong> (then confirm), or run <code>xattr -dr com.apple.quarantine FifteenPuzzle.app</code> once.</li>
+  <li><strong>macOS:</strong> the app is <strong>ad-hoc signed but not notarized</strong>, so Gatekeeper warns on first launch &mdash; <strong>right-click the app &rarr; Open</strong> (then confirm). If a download ever shows <em>&ldquo;damaged and can&rsquo;t be opened,&rdquo;</em> clear the quarantine flag once: <code>xattr -dr com.apple.quarantine FifteenPuzzle.app</code>.</li>
   <li><strong>Windows:</strong> SmartScreen may warn (unsigned). If it won&rsquo;t start, install the latest <strong>Microsoft Visual C++ Redistributable</strong>.</li>
   <li><strong>Linux:</strong> needs a recent <code>libcurl</code> (present on most desktops).</li>
 </ul>

@@ -121,6 +121,16 @@ jobs:
           cp "build/FifteenServer" "$stage/FifteenServer"
           cp "Bootstrap/run-server.sh" "$stage/run-server.sh"
           chmod +x "$stage/FifteenServer" "$stage/run-server.sh"
+          # Ad-hoc code-sign: Apple Silicon refuses to run un-/inconsistently
+          # signed bundles, which Gatekeeper reports as "damaged and can't be
+          # opened" on a quarantined download. An ad-hoc signature (identity "-")
+          # makes the bundle coherent so it runs — it's still un-notarized, so
+          # first launch is right-click -> Open (or `xattr -dr
+          # com.apple.quarantine`), not a hard block. (Notarization would need a
+          # paid Apple Developer account.)
+          codesign --force --deep --sign - "$stage/FifteenPuzzle.app"
+          codesign --force --sign - "$stage/FifteenServer"
+          codesign --verify --strict "$stage/FifteenPuzzle.app"
           tar -czf "dist/${{ matrix.archive }}" "$stage"
 
       - name: Package (Linux)

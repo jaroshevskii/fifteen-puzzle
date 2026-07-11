@@ -148,9 +148,10 @@ the local leaderboard work offline with no setup.
 
 ### Platform notes
 
-- **macOS:** the app is **not code-signed**, so Gatekeeper will warn on first
-  launch. Right-click the app → **Open** (then confirm), or run
-  `xattr -dr com.apple.quarantine FifteenPuzzle.app` once.
+- **macOS:** the app is **ad-hoc signed but not notarized**, so Gatekeeper
+  warns on first launch — **right-click the app → Open** (then confirm). If a
+  download ever shows *"damaged and can't be opened,"* clear the quarantine
+  flag once: `xattr -dr com.apple.quarantine FifteenPuzzle.app`.
 - **Windows:** SmartScreen may warn (unsigned). If it won't start, install the
   latest **Microsoft Visual C++ Redistributable**.
 - **Linux:** needs a recent `libcurl` (present on most desktops).
