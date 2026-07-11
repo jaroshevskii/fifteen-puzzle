@@ -122,12 +122,19 @@ else()
   #                          `#if`, so openal's -Werror=undef errors out. Defining
   #                          them (arm64/x86_64 = little-endian, LP64) avoids the
   #                          warning entirely — order-independent, unlike -Wno-*.
+  #   * -D__SWIFT_ATTR_SUPPORTS_SENDABLE_DECLS=0 (Apple): the Xcode 26.5 SDK's
+  #                          <CoreFoundation/CFBase.h> tests this Swift-interop
+  #                          probe macro with `#if`; upstream Clang never defines
+  #                          it, so -Werror=undef errors out. 0 is its correct
+  #                          "unsupported" value for a non-Swift C++ build. Older
+  #                          SDKs (or Apple Clang) predefine it, so this only
+  #                          bites the from-source build on newer Xcode runners.
   # These are Clang/GCC flags; MSVC does not need (or understand) them.
   set(_saved_cxx_flags "${CMAKE_CXX_FLAGS}")
   if(NOT MSVC)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -include cstdlib -Wno-elaborated-enum-base")
     if(APPLE)
-      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__LITTLE_ENDIAN__=1 -D__BIG_ENDIAN__=0 -D__LLP64__=0")
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__LITTLE_ENDIAN__=1 -D__BIG_ENDIAN__=0 -D__LLP64__=0 -D__SWIFT_ATTR_SUPPORTS_SENDABLE_DECLS=0")
     endif()
   endif()
   FetchContent_MakeAvailable(openal-soft)
