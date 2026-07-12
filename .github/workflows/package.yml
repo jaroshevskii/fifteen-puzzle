@@ -20,13 +20,10 @@ jobs:
         run: |
           git clean -fdx
 
-  - name: Build Release
-    env:
-      CC: ''
-      CXX: ''
-    run: |
-      set -e
-      xcodebuild -scheme FifteenPuzzle -configuration Release
+      - name: Build Release
+        run: |
+          set -e
+          xcodebuild -scheme FifteenPuzzle -configuration Release
 
       - name: Prepare distribution folder
         run: |
