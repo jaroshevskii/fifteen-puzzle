@@ -21,9 +21,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: macOS, runner: macos-latest, preset: macos, bin: FifteenPuzzle, stem: FifteenPuzzle-macos-arm64, archive: FifteenPuzzle-macos-arm64.tar.gz }
-          - { name: Linux, runner: ubuntu-latest, preset: linux, bin: FifteenPuzzle, stem: FifteenPuzzle-linux-x86_64, archive: FifteenPuzzle-linux-x86_64.tar.gz }
-          - { name: Windows, runner: windows-latest, preset: windows, bin: FifteenPuzzle.exe, stem: FifteenPuzzle-windows-x86_64.exe, archive: FifteenPuzzle-windows-x86_64.zip }
+          - { name: macOS, runner: macos-latest, preset: macos, bin: FifteenPuzzle, stem: FifteenPuzzle-macos-arm64, archive: FifteenPuzzle-macos-arm64-${{ github.event.release.tag_name }}.tar.gz }
+          - { name: Linux, runner: ubuntu-latest, preset: linux, bin: FifteenPuzzle, stem: FifteenPuzzle-linux-x86_64, archive: FifteenPuzzle-linux-x86_64-${{ github.event.release.tag_name }}.tar.gz }
+          - { name: Windows, runner: windows-latest, preset: windows, bin: FifteenPuzzle.exe, stem: FifteenPuzzle-windows-x86_64.exe, archive: FifteenPuzzle-windows-x86_64-${{ github.event.release.tag_name }}.zip }
 
     steps:
       - uses: actions/checkout@v7
