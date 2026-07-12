@@ -120,14 +120,8 @@ void drawBoard(const PuzzleFeature::State &state, double appear) {
   constexpr float duration = 0.3f;
 
   // Draw the empty tile first so it always renders beneath numbered tiles
-  int holeIndex = -1;
-  for (int i = 0; i < static_cast<int>(state.tiles.size()); ++i) {
-    if (state.tiles[i].empty()) {
-      holeIndex = i;
-      break;
-    }
-  }
-  if (holeIndex != -1) {
+  if (auto it = std::ranges::find(state.tiles, std::string{}); it != state.tiles.end()) {
+    const int holeIndex = std::distance(state.tiles.begin(), it);
     const Rectangle holeTarget = rectangleForIndex(holeIndex, state.grid);
     drawCard(state.tiles[holeIndex], holeTarget);
   }
